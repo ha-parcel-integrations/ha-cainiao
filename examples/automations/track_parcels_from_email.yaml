@@ -1,0 +1,116 @@
+# Extract Cainiao tracking codes from incoming e-mail and register them
+# with `cainiao.track_parcel`, so parcels start tracking the moment the
+# shipping confirmation lands in your inbox — no manual entry.
+#
+# Requirements:
+#   - one or more core IMAP config entries with "text" enabled under
+#     "message data" and the max message size raised (carrier mails are
+#     long) — full setup guide and pitfalls: track_parcels_from_email.md
+#   - optional: an `ai_task` entity for the AI fallback branch; delete
+#     the whole `else:` block if you don't use one
+#
+# The regex is deliberately written without backslashes (`(?<![0-9A-Za-z])`
+# instead of `\b`, `[0-9]` instead of `\d`): Jinja treats `\b` inside a
+# string literal as a backspace escape, so the pattern would silently
+# never match.
+
+alias: "Cainiao: track from e-mail"
+description: >-
+  Listens to imap_content events from all IMAP entries. Fast regex path for
+  Cainiao tracking codes; optional AI fallback for mails whose layout the
+  regex does not recognise.
+mode: queued
+max: 10
+
+triggers:
+  - trigger: event
+    event_type: imap_content
+
+variables:
+  sender: "{{ trigger.event.data.sender | default('') | lower }}"
+  subject: "{{ trigger.event.data.subject | default('') }}"
+  body: "{{ trigger.event.data.text | default('') }}"
+  content: "{{ subject ~ ' ' ~ body }}"
+  # Cainiao's own label format: LP followed by 12-18 digits. This matches
+  # only that, on purpose — see the accompanying .md for why the broader
+  # formats Cainiao also answers for are left out by default.
+  cainiao_codes: >-
+    {{ content | regex_findall('(?<![0-9A-Za-z])LP[0-9]{12,18}(?![0-9A-Za-z])')
+       | unique | list }}
+  # Keyword gate for the AI fallback — localise to your language(s).
+  is_parcel_mail: >-
+    {{ content | lower is search('pakket|bezorg|track|verzonden|onderweg|zending|shipment|delivery|levering') }}
+
+conditions:
+  # initial=true means "new message"; false means a duplicate trigger of
+  # the SAME message (e.g. after a reconnect) — requiring it is free dedup.
+  - condition: template
+    value_template: "{{ trigger.event.data.initial | default(true) }}"
+  - condition: template
+    value_template: "{{ is_parcel_mail or cainiao_codes | count > 0 }}"
+
+actions:
+  - repeat:
+      for_each: "{{ cainiao_codes }}"
+      sequence:
+        - action: cainiao.track_parcel
+          data:
+            tracking_code: "{{ repeat.item }}"
+  - if:
+      - condition: template
+        value_template: "{{ cainiao_codes | count > 0 }}"
+    then:
+      - action: notify.mobile_app_your_phone
+        data:
+          title: "📦 Cainiao parcel picked up from mail"
+          message: >-
+            {{ cainiao_codes | join(', ') }} (mail from {{ sender }})
+    else:
+      # ---- Optional AI fallback — delete this block if you have no ai_task entity ----
+      - action: ai_task.generate_data
+        data:
+          task_name: cainiao-tracking-code-extraction
+          entity_id: ai_task.your_ai_task_entity
+          instructions: >-
+            Below is an e-mail about a parcel from AliExpress, Temu or a
+            similar cross-border shop. Determine whether it contains a
+            Cainiao tracking code. These usually start with LP followed by
+            12-18 digits, but Cainiao also tracks UPU numbers of the form
+            two letters, nine digits, two letters (e.g. RS123456789NL).
+            Only return a real tracking code, never an order, customer or
+            invoice number. If the mail is from a different carrier,
+            answer 'other'. When in doubt: 'none'.
+
+            Sender: {{ sender }}
+            Subject: {{ subject }}
+            Body:
+            {{ body[:6000] }}
+          structure:
+            carrier:
+              description: Whether a Cainiao tracking code was found
+              required: true
+              selector:
+                select:
+                  options: ["cainiao", "other", "none"]
+            tracking_code:
+              description: The tracking code, or empty if none
+              required: false
+              selector:
+                text:
+        response_variable: ai_result
+      - choose:
+          - conditions: "{{ ai_result.data.carrier == 'cainiao' and (ai_result.data.tracking_code | default('') | trim) != '' }}"
+            sequence:
+              - action: cainiao.track_parcel
+                data:
+                  tracking_code: "{{ ai_result.data.tracking_code | trim }}"
+              - action: notify.mobile_app_your_phone
+                data:
+                  title: "📦 Cainiao parcel picked up from mail (AI)"
+                  message: "{{ ai_result.data.tracking_code | trim }} (mail from {{ sender }})"
+          - conditions: "{{ ai_result.data.carrier == 'other' and (ai_result.data.tracking_code | default('') | trim) != '' }}"
+            sequence:
+              - action: notify.mobile_app_your_phone
+                data:
+                  title: "📦 Tracking number found – not a Cainiao parcel"
+                  message: "{{ ai_result.data.tracking_code | trim }} (mail from {{ sender }}, subject: {{ subject }})"

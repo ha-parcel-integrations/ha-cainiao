@@ -1,0 +1,126 @@
+{
+  "title": "Cainiao",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Cainiao",
+        "description": "Cainiao tracks cross-border parcels from AliExpress, Temu and similar shops — from the day they ship, long before a local carrier sees them. No account or postal code is needed, so the hub is created right away. Add parcels afterwards via the integration options or the `cainiao.track_parcel` service."
+      }
+    },
+    "abort": {
+      "already_configured": "Cainiao is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Cainiao options",
+        "sections": {
+          "parcels": {
+            "name": "Parcels",
+            "data": {
+              "add": "Add a parcel",
+              "remove": "Remove parcels"
+            },
+            "data_description": {
+              "add": "Enter a Cainiao tracking number to start tracking it. You find it in your AliExpress, Temu or similar order — usually starting with LP."
+            }
+          },
+          "delivered": {
+            "name": "Delivered parcels",
+            "data": {
+              "delivered_filter_type": "Filter by",
+              "delivered_filter_amount": "Amount"
+            },
+            "data_description": {
+              "delivered_filter_type": "Show delivered parcels from the last X days, or limit to the X most recent.",
+              "delivered_filter_amount": "Number of days or parcels to show."
+            }
+          },
+          "history": {
+            "name": "Parcel history",
+            "data": {
+              "include_history": "Include status history"
+            },
+            "data_description": {
+              "include_history": "Add a per-parcel history attribute listing each status update (timestamp, status, original text). Off by default."
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "invalid_tracking_code": "That does not look like a Cainiao tracking code.",
+      "already_tracked": "That parcel is already being tracked."
+    }
+  },
+  "selector": {
+    "delivered_filter_type": {
+      "options": {
+        "days": "Days",
+        "parcels": "Number of parcels"
+      }
+    }
+  },
+  "services": {
+    "track_parcel": {
+      "name": "Track parcel",
+      "description": "Start tracking a parcel by its Cainiao tracking code.",
+      "fields": {
+        "tracking_code": {
+          "name": "Tracking code",
+          "description": "The Cainiao tracking code."
+        }
+      }
+    },
+    "untrack_parcel": {
+      "name": "Untrack parcel",
+      "description": "Stop tracking a parcel by its Cainiao tracking code.",
+      "fields": {
+        "tracking_code": {
+          "name": "Tracking code",
+          "description": "The Cainiao tracking code to stop tracking."
+        }
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "parcel_registered": "A parcel was registered",
+      "parcel_status_changed": "A parcel's status changed",
+      "parcel_delivered": "A parcel was delivered",
+      "parcel_delivery_time_changed": "A parcel's expected delivery time changed"
+    }
+  },
+  "entity": {
+    "button": {
+      "refresh": {
+        "name": "Refresh"
+      }
+    },
+    "calendar": {
+      "deliveries": {
+        "name": "Deliveries"
+      }
+    },
+    "sensor": {
+      "incoming_parcels": {
+        "name": "Incoming parcels",
+        "unit_of_measurement": "parcels"
+      },
+      "next_delivery": {
+        "name": "Next delivery"
+      },
+      "delivered_parcels": {
+        "name": "Delivered parcels",
+        "unit_of_measurement": "parcels"
+      },
+      "last_update": {
+        "name": "Last successful update"
+      },
+      "parcel": {
+        "name": "Parcel {barcode}"
+      }
+    }
+  }
+}
