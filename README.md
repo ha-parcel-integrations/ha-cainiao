@@ -6,6 +6,18 @@
 
 > 💬 Questions or feedback? Join the discussion on the [Home Assistant community](https://community.home-assistant.io/t/packages-postnl-dhl-nl-dpd-and-gls-parcel-integration/112433/).
 
+> ### ⚠️ Early release — the mapping is well-evidenced, not yet confirmed
+>
+> Everything works: parcels are polled, mapped, and published as sensors,
+> events and a calendar. The field names come from Cainiao's published response
+> schema and the status codes are cross-checked between two independently
+> maintained trackers.
+>
+> What is missing is a **fully populated response captured from a real parcel**.
+> Only the "unknown tracking number" response has been verified first-hand. So
+> if something reads oddly, it is worth reporting rather than assuming it is
+> your parcel — see [How you can help](#how-you-can-help).
+
 A custom Home Assistant integration that tracks cross-border parcels through [Cainiao](https://global.cainiao.com) — Alibaba's tracking layer for AliExpress, Temu, Shein and similar shops. No account is needed: you enter the tracking number yourself, just like on Cainiao's own tracking page.
 
 **Why this and not your national carrier's integration?** A parcel from China is invisible to PostNL, DHL or DPD until it reaches their network, often two weeks after you ordered. Cainiao sees it from the day it ships. Once a local carrier takes over the last leg, that carrier's integration takes over too — so the two complement each other rather than compete.
@@ -26,6 +38,7 @@ Part of the [ha-parcel-integrations](https://github.com/ha-parcel-integrations) 
 - [Services](#services)
 - [Examples](#examples)
 - [Debugging](#debugging)
+- [How you can help](#how-you-can-help)
 - [Troubleshooting](#troubleshooting)
 - [Related integrations](#related-integrations)
 - [Disclaimer](#disclaimer)
@@ -149,6 +162,28 @@ logger:
   logs:
     custom_components.cainiao: debug
 ```
+
+## How you can help
+
+Cainiao describes each scan with an **action code** — `LH_DEPART`,
+`GTMS_SIGNED`, and so on. The integration maps 31 of them; the list is
+cross-checked against two other trackers, but it is certainly not complete.
+
+An unrecognised code makes the parcel report `unknown` rather than guessing,
+and writes one line to your log:
+
+```
+Unrecognised Cainiao action code — help us map it. Open an issue and paste this line: …
+  actionCode=SOME_NEW_CODE → reported as 'unknown'
+```
+
+[Opening that issue](https://github.com/ha-parcel-integrations/ha-cainiao/issues/new?template=unrecognised_status.yml)
+with the logged line is all it takes — the code alone is enough, and it says
+nothing about you or your parcel.
+
+Equally useful: if a parcel shows a status that feels *wrong* rather than
+unknown — say it claims delivered while it is still at a pickup point — that is
+worth an issue too. Those are the mappings we have the least evidence for.
 
 ## Troubleshooting
 
