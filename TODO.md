@@ -10,17 +10,15 @@ treat what follows as the gap between "builds" and "works".
 - [ ] **Track one real parcel through at least two statuses.** Order a cheap
       AliExpress item, add its `LP…` number, and watch it move. This is the
       only step that can turn the assumptions below into facts.
-- [ ] **Confirm the status vocabulary.** `_STATUS_MAP` in `parcels.py` is
-      seeded with inferred tokens; only `delivered` is known for certain.
-      Every unmapped token logs a one-shot warning with the exact line to paste
-      into an issue — collect those and complete the map. **Do not add mappings
-      you have not seen in a real response.**
-- [ ] **Confirm the casing** of the `status` token. The map is matched
-      case-insensitively precisely because this is unknown; once known, the
-      comment on `_normalise_token` can say so.
-- [ ] **Confirm the `detailList` field names** — `time`, `actionCode`, `desc` /
-      `standerdDesc`. `build_history` reads all of them defensively, but a real
-      response would let us drop the guesses.
+- [ ] **Extend the action-code vocabulary.** `_ACTION_MAP` in `parcels.py` holds
+      31 codes, cross-checked between two maintained third-party trackers — but
+      it is not exhaustive. Every unmapped code logs a one-shot warning with the
+      exact line to paste into an issue; collect those. **Do not add mappings
+      you have not seen evidence for.**
+- [ ] **Sanity-check the pickup codes against a real parcel.**
+      `GTMS_STA_SIGNED` / `GTMS_WAIT_SELF_PICK` / `GSTA_INFORM_BUYER` map to
+      `at_pickup_point`, which is the one group where a wrong call is
+      user-visible: it decides whether the delivered event fires.
 - [ ] **Check whether an ETA is ever exposed.** `planned_from` / `planned_to`
       are hard-coded to `None` because nothing in the probed responses carried
       a window. If a real parcel does, wire it up — the calendar and the

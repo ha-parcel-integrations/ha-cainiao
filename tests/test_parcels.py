@@ -32,6 +32,7 @@ from .payloads import (
     UNKNOWN_MODULE_ENTRY,
     active_sample,
     delivered_sample,
+    pickup_sample,
     trace,
 )
 
@@ -41,35 +42,36 @@ from .payloads import (
 
 
 @pytest.mark.parametrize(
-    "token,expected",
+    "action_code,expected",
     [
-        ("delivered", ParcelStatus.DELIVERED),
-        ("transport", ParcelStatus.IN_TRANSIT),
-        ("delivering", ParcelStatus.OUT_FOR_DELIVERY),
-        ("pickup", ParcelStatus.AT_PICKUP_POINT),
-        ("return", ParcelStatus.RETURNING),
-        ("exception", ParcelStatus.PROBLEM),
+        ("GWMS_ACCEPT", ParcelStatus.REGISTERED),
+        ("LH_DEPART", ParcelStatus.IN_TRANSIT),
+        ("CC_IM_START", ParcelStatus.IN_TRANSIT),
+        ("GTMS_ACCEPT", ParcelStatus.IN_TRANSIT),
+        ("GTMS_DO_DEPART", ParcelStatus.OUT_FOR_DELIVERY),
+        ("GTMS_WAIT_SELF_PICK", ParcelStatus.AT_PICKUP_POINT),
+        ("GTMS_SIGNED", ParcelStatus.DELIVERED),
+        ("GTMS_STA_SIGN_FAILURE", ParcelStatus.PROBLEM),
+        ("EXCEPTION", ParcelStatus.PROBLEM),
     ],
 )
-def test_map_parcel_status_known(token, expected):
-    assert map_parcel_status(token) == expected
+def test_map_event_status_known(action_code, expected):
+    assert map_event_status(action_code) == expected
 
 
-def test_map_parcel_status_is_case_insensitive():
-    """Cainiao's casing is not established, so neither form may be lost."""
-    assert map_parcel_status("DELIVERED") == ParcelStatus.DELIVERED
-    assert map_parcel_status(" Delivered ") == ParcelStatus.DELIVERED
+def test_station_signature_is_not_a_delivery():
+    """GTMS_STA_SIGNED is the pickup point signing, not the recipient.
+
+    Mapping it to DELIVERED would fire the delivered event while the parcel is
+    still sitting in a locker.
+    """
+    assert map_event_status("GTMS_STA_SIGNED") == ParcelStatus.AT_PICKUP_POINT
+    assert map_event_status("GTMS_SIGNED") == ParcelStatus.DELIVERED
 
 
-def test_map_parcel_status_missing_is_unknown_and_silent(caplog):
-    """A not-yet-scanned parcel is the normal state for days — never warn."""
-    assert map_parcel_status(None) == ParcelStatus.UNKNOWN
-    assert map_parcel_status("") == ParcelStatus.UNKNOWN
-    assert caplog.text == ""
-
-
-def test_map_parcel_status_unmapped_is_unknown():
-    assert map_parcel_status("TELEPORTED") == ParcelStatus.UNKNOWN
+def test_map_event_status_is_case_insensitive():
+    assert map_event_status("gtms_signed") == ParcelStatus.DELIVERED
+    assert map_event_status(" GTMS_SIGNED ") == ParcelStatus.DELIVERED
 
 
 def test_map_event_status_missing_and_unmapped_are_none():
@@ -77,13 +79,32 @@ def test_map_event_status_missing_and_unmapped_are_none():
     "no mapping" from "mapped to unknown"."""
     assert map_event_status(None) is None
     assert map_event_status("GOT_SCANNED_SOMEWHERE") is None
-    assert map_event_status("SIGNIN") == ParcelStatus.DELIVERED
 
 
-def test_unmapped_status_warns_only_once(caplog):
-    assert map_parcel_status("ABDUCTED") == ParcelStatus.UNKNOWN
-    assert map_parcel_status("ABDUCTED") == ParcelStatus.UNKNOWN
-    assert caplog.text.count("ABDUCTED") == 1
+def test_parcel_status_comes_from_the_latest_trace():
+    assert map_parcel_status(delivered_sample()) == ParcelStatus.DELIVERED
+    assert map_parcel_status(active_sample()) == ParcelStatus.IN_TRANSIT
+    assert map_parcel_status(pickup_sample()) == ParcelStatus.AT_PICKUP_POINT
+
+
+def test_parcel_status_falls_back_to_the_newest_event():
+    """Some payloads omit latestTrace; the timeline still describes the parcel."""
+    raw = delivered_sample()
+    del raw["latestTrace"]
+    assert map_parcel_status(raw) == ParcelStatus.DELIVERED
+
+
+def test_parcel_without_events_is_unknown_and_silent(caplog):
+    """A not-yet-scanned parcel is the normal state for days — never warn."""
+    assert map_parcel_status(UNKNOWN_MODULE_ENTRY) == ParcelStatus.UNKNOWN
+    assert map_parcel_status({}) == ParcelStatus.UNKNOWN
+    assert caplog.text == ""
+
+
+def test_unmapped_action_warns_only_once(caplog):
+    assert map_event_status("ABDUCTED_BY_ALIENS") is None
+    assert map_event_status("ABDUCTED_BY_ALIENS") is None
+    assert caplog.text.count("ABDUCTED_BY_ALIENS") == 1
     assert "issues/new" in caplog.text
 
 
@@ -138,19 +159,19 @@ def test_build_history_orders_oldest_to_newest():
 
 
 def test_build_history_caps_to_max_events():
-    events = [trace("TRANSPORT", 1_770_000_000_000 + n, "moved") for n in range(25)]
+    events = [trace("LH_DEPART", 1_770_000_000_000 + n, "moved") for n in range(25)]
     assert len(build_history(events, max_events=20)) == 20
 
 
 def test_build_history_handles_missing_and_malformed():
     assert build_history(None) == []
-    assert build_history([{"actionCode": "TRANSPORT"}]) == []  # no timestamp
+    assert build_history([{"actionCode": "LH_DEPART"}]) == []  # no timestamp
     assert build_history(["not-a-dict"]) == []
 
 
 def test_build_history_falls_back_to_the_action_code():
-    events = [{"actionCode": "SIGNIN", "time": 1_777_200_000_000}]
-    assert build_history(events)[0]["raw_status"] == "SIGNIN"
+    events = [{"actionCode": "GTMS_SIGNED", "time": 1_777_200_000_000}]
+    assert build_history(events)[0]["raw_status"] == "GTMS_SIGNED"
 
 
 # ---------------------------------------------------------------------------
@@ -237,6 +258,14 @@ def test_normalize_falls_back_to_the_latest_trace_text():
     raw = active_sample()
     del raw["statusDesc"]
     assert normalize_parcel(raw)["raw_status"] == "Departed from origin country"
+
+
+def test_normalize_pickup_parcel_is_not_delivered():
+    parcel = normalize_parcel(pickup_sample())
+    assert parcel["status"] == ParcelStatus.AT_PICKUP_POINT
+    assert parcel["pickup"] is True
+    assert parcel["delivered"] is False
+    assert parcel["delivered_at"] is None
 
 
 def test_normalize_keeps_raw_payload():

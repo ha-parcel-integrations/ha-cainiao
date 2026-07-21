@@ -44,32 +44,64 @@ NEW_ISSUE_URL = (
     "?template=unrecognised_status.yml"
 )
 
-# Cainiao's ``status`` token → canonical ParcelStatus.
+# Cainiao's per-event ``actionCode`` → canonical ParcelStatus.
 #
-# The token is a stable, language-independent English string that sits next to
-# the localised ``statusDesc``; mapping on the token rather than on prose is
-# what keeps this from breaking when a user's ``lang`` changes.
+# **This is the map that matters.** Cainiao's parcel-level ``status`` token is a
+# short summary whose vocabulary is not established; the ``actionCode`` on each
+# timeline entry is a rich, stable code, and the newest entry's code describes
+# the parcel just as well. So both the parcel status and the history entries map
+# through this one table.
 #
-# **The entries below are unverified.** They were not read off a live parcel —
-# the vocabulary is inferred, and only ``delivered`` is known for certain. That
-# is deliberate rather than sloppy: an unmapped token surfaces as ``unknown``
-# plus a one-shot warning asking the user to report it, so the map grows from
-# real payloads instead of from guesses. Adding a *wrong* mapping is worse than
-# adding none, so when in doubt, leave it out.
+# The vocabulary below is cross-checked against two independently maintained
+# third-party trackers that call this same endpoint. It is not guesswork — but
+# it is also not exhaustive, and an unrecognised code still surfaces as
+# ``unknown`` plus a one-shot warning so the map keeps growing from real
+# reports.
 #
-# Comparison is case-insensitive (see :func:`_normalise_token`), because it is
-# not established whether Cainiao reports these upper- or lower-case.
-_STATUS_MAP: dict[str, ParcelStatus] = {
-    "delivered": ParcelStatus.DELIVERED,
-    "signin": ParcelStatus.DELIVERED,
-    "departure": ParcelStatus.IN_TRANSIT,
-    "transport": ParcelStatus.IN_TRANSIT,
-    "arrival": ParcelStatus.IN_TRANSIT,
-    "customs": ParcelStatus.IN_TRANSIT,
-    "delivering": ParcelStatus.OUT_FOR_DELIVERY,
-    "pickup": ParcelStatus.AT_PICKUP_POINT,
-    "return": ParcelStatus.RETURNING,
-    "exception": ParcelStatus.PROBLEM,
+# Grouped by the leg of the journey the code belongs to.
+_ACTION_MAP: dict[str, ParcelStatus] = {
+    # Seller side: order accepted, packed, waiting to ship.
+    "GWMS_ACCEPT": ParcelStatus.REGISTERED,
+    "GWMS_PACKAGE": ParcelStatus.REGISTERED,
+    "PRE_READY_TO_SHIP": ParcelStatus.REGISTERED,
+    # Warehouse and origin-country sorting.
+    "CW_INBOUND": ParcelStatus.IN_TRANSIT,
+    "CW_OUTBOUND": ParcelStatus.IN_TRANSIT,
+    "CW_COMMON_PROCESSING1": ParcelStatus.IN_TRANSIT,
+    "PU_PICKUP_SUCCESS": ParcelStatus.IN_TRANSIT,
+    "GWMS_OUTBOUND": ParcelStatus.IN_TRANSIT,
+    "SC_INBOUND_SUCCESS": ParcelStatus.IN_TRANSIT,
+    "SC_OUTBOUND_SUCCESS": ParcelStatus.IN_TRANSIT,
+    # Export customs.
+    "CC_EX_START": ParcelStatus.IN_TRANSIT,
+    "CC_EX_SUCCESS": ParcelStatus.IN_TRANSIT,
+    # Line haul — the flight or truck between countries.
+    "LH_HO_IN_SUCCESS": ParcelStatus.IN_TRANSIT,
+    "LH_HO_AIRLINE": ParcelStatus.IN_TRANSIT,
+    "LH_DEPART": ParcelStatus.IN_TRANSIT,
+    "LH_ARRIVE": ParcelStatus.IN_TRANSIT,
+    "COMMON_INTRANSIT": ParcelStatus.IN_TRANSIT,
+    # Import customs in the destination country.
+    "CC_HO_IN_SUCCESS": ParcelStatus.IN_TRANSIT,
+    "CC_IM_START": ParcelStatus.IN_TRANSIT,
+    "CC_IM_SUCCESS": ParcelStatus.IN_TRANSIT,
+    "CC_HO_OUT_SUCCESS": ParcelStatus.IN_TRANSIT,
+    # Handed to the local carrier for the last leg.
+    "GTMS_ACCEPT": ParcelStatus.IN_TRANSIT,
+    "GTMS_SC_ARRIVE": ParcelStatus.IN_TRANSIT,
+    "GTMS_SC_DEPART": ParcelStatus.IN_TRANSIT,
+    "GTMS_DO_DEPART": ParcelStatus.OUT_FOR_DELIVERY,
+    # Waiting at a pickup point. ``GTMS_STA_SIGNED`` is the station signing for
+    # the parcel, not the recipient — it means "ready to collect", not
+    # "delivered", and mapping it to DELIVERED would fire the delivered event
+    # while the parcel is still in a locker.
+    "GSTA_INFORM_BUYER": ParcelStatus.AT_PICKUP_POINT,
+    "GTMS_WAIT_SELF_PICK": ParcelStatus.AT_PICKUP_POINT,
+    "GTMS_STA_SIGNED": ParcelStatus.AT_PICKUP_POINT,
+    # Terminal states.
+    "GTMS_SIGNED": ParcelStatus.DELIVERED,
+    "GTMS_STA_SIGN_FAILURE": ParcelStatus.PROBLEM,
+    "EXCEPTION": ParcelStatus.PROBLEM,
 }
 
 # A tracking number embedded in Cainiao's ``realMailNo`` display string, which
@@ -85,61 +117,64 @@ _EMBEDDED_NUMBER_RE = re.compile(
 _unmapped_statuses_logged: set[str] = set()
 
 
-def _warn_unmapped_status(code: str) -> None:
-    """Log an unmapped carrier status once, with a copy-paste issue link."""
+def _warn_unmapped_action(code: str) -> None:
+    """Log an unmapped action code once, with a copy-paste issue link."""
     if code in _unmapped_statuses_logged:
         return
     _unmapped_statuses_logged.add(code)
     _LOGGER.warning(
-        "Unrecognised Cainiao status — help us map it. Open an issue "
-        "and paste this line: %s\n  status=%s → reported as 'unknown'",
+        "Unrecognised Cainiao action code — help us map it. Open an issue "
+        "and paste this line: %s\n  actionCode=%s → reported as 'unknown'",
         NEW_ISSUE_URL,
         code,
     )
 
 
-def _normalise_token(code: str) -> str:
-    """Lower-case a status token for lookup.
+def _lookup(code: str | None) -> ParcelStatus | None:
+    """Look an action code up in :data:`_ACTION_MAP`, warning once if unknown.
 
-    Cainiao's casing is not established, so the map is matched case-insensitively
-    rather than betting on one form and silently reporting ``unknown`` for the
-    other.
-    """
-    return code.strip().lower()
-
-
-def map_parcel_status(code: str | None) -> ParcelStatus:
-    """Map a Cainiao ``status`` token to a canonical :class:`ParcelStatus`.
-
-    ``None`` — which is what a not-yet-scanned cross-border parcel gets, often
-    for days after ordering — reports ``unknown`` silently. An unrecognised
-    token reports ``unknown`` with a one-shot warning.
+    Case- and whitespace-insensitive: Cainiao reports these upper-case, but
+    matching loosely costs nothing and avoids reporting ``unknown`` over a
+    formatting difference.
     """
     if not code:
-        return ParcelStatus.UNKNOWN
-    mapped = _STATUS_MAP.get(_normalise_token(code))
-    if mapped is not None:
-        return mapped
-    _warn_unmapped_status(code)
+        return None
+    mapped = _ACTION_MAP.get(code.strip().upper())
+    if mapped is None:
+        _warn_unmapped_action(code)
+    return mapped
+
+
+def map_parcel_status(raw: dict) -> ParcelStatus:
+    """Map a parcel to a canonical :class:`ParcelStatus`.
+
+    Derived from the **newest timeline entry's** ``actionCode`` rather than from
+    the parcel-level ``status`` token: the action codes are a known, specific
+    vocabulary, while the summary token's is not. ``latestTrace`` is what
+    Cainiao itself presents as the current state; the last ``detailList`` entry
+    is the fallback for payloads that omit it.
+
+    A parcel with no events at all — the normal state for days after ordering —
+    reports ``unknown`` silently.
+    """
+    latest = raw.get("latestTrace")
+    if isinstance(latest, dict) and latest.get("actionCode"):
+        return _lookup(latest.get("actionCode")) or ParcelStatus.UNKNOWN
+
+    events = [e for e in (raw.get("detailList") or []) if isinstance(e, dict)]
+    if events:
+        newest = max(events, key=lambda e: e.get("time") or 0)
+        return _lookup(newest.get("actionCode")) or ParcelStatus.UNKNOWN
     return ParcelStatus.UNKNOWN
 
 
 def map_event_status(code: str | None) -> ParcelStatus | None:
     """Map a history entry's action code to a canonical status, or ``None``.
 
-    Unmapped codes keep ``status: null`` on the history entry (rather than
-    ``unknown``, so a consumer can tell "no mapping" from "mapped to unknown")
-    and warn once, reusing the parcel-status one-shot set. Cainiao's per-event
-    vocabulary is richer than the parcel-level one, so this warning is the main
-    way the map will grow once real parcels flow through.
+    Unmapped codes keep ``status: null`` on the history entry rather than
+    ``unknown``, so a consumer can tell "no mapping" from "mapped to unknown".
     """
-    if not code:
-        return None
-    mapped = _STATUS_MAP.get(_normalise_token(code))
-    if mapped is not None:
-        return mapped
-    _warn_unmapped_status(code)
-    return None
+    return _lookup(code)
 
 
 def parse_iso(value: str | None) -> datetime | None:
@@ -273,10 +308,14 @@ def normalize_parcel(raw: dict, *, include_history: bool = False) -> dict:
 
     ``delivered_at`` comes from the latest trace's timestamp, which is the
     delivery scan once the parcel is delivered.
+
+    ``raw`` keeps everything Cainiao sends that has no canonical home:
+    ``originCountry`` / ``destCountry``, the handoff carrier in ``destCpInfo``,
+    and each event's ``timeStr`` / ``timeZone`` (the local wall-clock rendering
+    of a timestamp we publish in UTC).
     """
     tracking_code = raw.get("mailNo")
-    status_token = raw.get("status")
-    status = map_parcel_status(status_token)
+    status = map_parcel_status(raw)
     delivered = status is ParcelStatus.DELIVERED
 
     latest_trace = raw.get("latestTrace") or {}
@@ -289,7 +328,8 @@ def normalize_parcel(raw: dict, *, include_history: bool = False) -> dict:
         "status": status,
         "raw_status": raw.get("statusDesc")
         or latest_trace.get("standerdDesc")
-        or status_token,
+        or latest_trace.get("desc")
+        or raw.get("status"),
         "delivered": delivered,
         "delivered_at": (
             to_iso_timestamp(latest_trace.get("time")) if delivered else None

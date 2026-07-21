@@ -19,7 +19,13 @@ from custom_components.cainiao.const import (
 )
 from custom_components.cainiao.coordinator import CainiaoCoordinator
 
-from .payloads import ACTIVE_CODE, DELIVERED_CODE, active_sample, delivered_sample
+from .payloads import (
+    ACTIVE_CODE,
+    DELIVERED_CODE,
+    active_sample,
+    delivered_sample,
+    trace,
+)
 
 OTHER_CODE = "LP00888888888"
 
@@ -47,8 +53,15 @@ def _returning(*entries: dict) -> AsyncMock:
 
 
 def _in_transit(code: str = ACTIVE_CODE) -> dict:
+    """A parcel that has not yet reached the local courier."""
+    return active_sample(code)
+
+
+def _out_for_delivery(code: str = ACTIVE_CODE) -> dict:
     sample = active_sample(code)
-    sample["status"] = "departure"
+    sample["latestTrace"] = trace(
+        "GTMS_DO_DEPART", 1_777_100_000_000, "Out for delivery"
+    )
     return sample
 
 
@@ -225,11 +238,7 @@ async def test_event_carries_device_id(hass):
     hass.bus.async_listen(f"{DOMAIN}_parcel_status_changed", lambda e: events.append(e))
 
     await coordinator._async_update_data()
-    # "departure" and "transport" both map to in_transit, so move it further
-    # along or nothing changes and nothing fires.
-    delivering = active_sample()
-    delivering["status"] = "delivering"
-    client.async_get_parcels.return_value = {ACTIVE_CODE: delivering}
+    client.async_get_parcels.return_value = {ACTIVE_CODE: _out_for_delivery()}
     await coordinator._async_update_data()
     await hass.async_block_till_done()
 
@@ -247,9 +256,7 @@ async def test_fires_status_changed_event(hass):
 
     await coordinator._async_update_data()  # first refresh: suppressed
 
-    delivering = active_sample()
-    delivering["status"] = "delivering"
-    client.async_get_parcels.return_value = {ACTIVE_CODE: delivering}
+    client.async_get_parcels.return_value = {ACTIVE_CODE: _out_for_delivery()}
     await coordinator._async_update_data()
     await hass.async_block_till_done()
 

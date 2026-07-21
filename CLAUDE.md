@@ -106,7 +106,7 @@ flagged.
 | Canonical | Cainiao field |
 |---|---|
 | `barcode` | `mailNo` |
-| `status` | `status` — a stable English token, mapped in `_STATUS_MAP` |
+| `status` | `latestTrace.actionCode`, mapped in `_ACTION_MAP` |
 | `raw_status` | `statusDesc`, falling back to `latestTrace.standerdDesc` |
 | `delivered_at` | `latestTrace.time`, epoch **milliseconds** |
 | `history` | `detailList[]` — `time`, `actionCode`, `standerdDesc`/`desc` |
@@ -115,13 +115,23 @@ flagged.
 
 `standerdDesc` is Cainiao's own spelling, not a typo in this repo.
 
-**The status vocabulary is not confirmed.** `_STATUS_MAP` is seeded with
-inferred tokens and matched case-insensitively; only `delivered` is known for
-certain. This is deliberate: an unmapped token surfaces as `unknown` plus a
-one-shot warning that asks the user to report it, so the map grows from real
-payloads rather than from guesses. **Do not add mappings you have not seen in a
-real response** — a wrong mapping is worse than a missing one, because it fires
-events for a state the parcel is not in.
+**Status comes from the action codes, not from the `status` token.** Cainiao
+sends a parcel-level `status` summary *and* a per-event `actionCode`. The action
+codes are a specific, published vocabulary; the summary token's is not, so
+`map_parcel_status` reads the newest timeline entry's `actionCode` (falling back
+to the last `detailList` entry when `latestTrace` is absent) and the `status`
+token is only used as `raw_status` filler.
+
+`_ACTION_MAP` is cross-checked against two independently maintained third-party
+trackers that call this endpoint. Still, an unrecognised code surfaces as
+`unknown` plus a one-shot warning, so the map grows from real reports. **Do not
+add mappings you have not seen evidence for** — a wrong mapping is worse than a
+missing one, because it fires events for a state the parcel is not in.
+
+One trap worth knowing: **`GTMS_STA_SIGNED` is not a delivery.** It is the
+pickup point signing for the parcel, so it maps to `at_pickup_point`. Mapping it
+to `delivered` would fire the delivered event while the parcel sits in a locker.
+`GTMS_SIGNED` — no `STA` — is the real one.
 
 ### Handoff and double-counting
 
@@ -138,12 +148,21 @@ for; not worth unilaterally changing the contract for.
 Both numbers are in `TO_REDACT`: either one is enough to look the parcel up on
 a public tracking page.
 
-### Still unverified
+### Confidence levels
 
-The mapping above has not been exercised against a real parcel — only the empty
-/ unknown-number response has. `tests/payloads.py` says which is which. Until a
-real `LP…` parcel has moved through at least two statuses, treat the populated
-payload shape as a hypothesis. See `TODO.md`.
+Three different things, three different levels of certainty:
+
+1. **The envelope and the empty response** — verified live against the endpoint.
+2. **The field names** — from the published response schema (`mailNo`, `status`,
+   `statusDesc`, `latestTrace`, `detailList[].actionCode|time|timeStr|timeZone|
+   desc|standerdDesc`, `destCpInfo`, `originCountry`, `destCountry`). Solid, but
+   not read off a response we captured.
+3. **The action-code vocabulary** — cross-checked between two maintained
+   trackers, so unlikely to be wrong, but not exhaustive.
+
+What is still missing is a single fully populated response of our own. Until one
+exists, treat the populated shape as well-evidenced rather than confirmed. See
+`TODO.md`.
 
 ## The canonical parcel contract
 
