@@ -192,7 +192,7 @@ worth an issue too. Those are the mappings we have the least evidence for.
 
 ## Related integrations
 
-This integration is part of [**ha-parcel-integrations**](https://github.com/ha-parcel-integrations) — a family of Dutch
+This integration is part of [**ha-parcel-integrations**](https://github.com/ha-parcel-integrations) — a family of
 parcel-carrier integrations that all publish the same canonical parcel format,
 statuses and events.
 
@@ -202,7 +202,7 @@ statuses and events.
 
 ## Disclaimer
 
-This integration uses the same public tracking endpoint as Cainiao's own tracking page. It is not affiliated with, endorsed by, or supported by Cainiao or Alibaba.\n\n**On polling:** the interval is fixed at six hours and deliberately not configurable. Alibaba throttles traffic it considers unusual, and an IP ban would cost you every AliExpress service, not just this integration. All tracked parcels are fetched in a single request per poll for the same reason. Use the refresh button if you cannot wait.
+This integration uses the same public tracking endpoint as Cainiao's own tracking page. It is not affiliated with, endorsed by, or supported by Cainiao or Alibaba.
 
 ## Contributing
 
