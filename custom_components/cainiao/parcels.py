@@ -36,7 +36,13 @@ _LOGGER = logging.getLogger(__name__)
 # Where users report a status we do not map yet. Rewritten by the bootstrap
 # script; it must point at the carrier's own repo so the log line is
 # copy-pasteable straight into a new issue.
-NEW_ISSUE_URL = "https://github.com/ha-parcel-integrations/ha-cainiao/issues/new"
+#
+# The ``?template=`` parameter matters: without it the link opens a blank form,
+# and the report comes back missing the version and the log line we need.
+NEW_ISSUE_URL = (
+    "https://github.com/ha-parcel-integrations/ha-cainiao/issues/new"
+    "?template=unrecognised_status.yml"
+)
 
 # Cainiao's ``status`` token → canonical ParcelStatus.
 #
