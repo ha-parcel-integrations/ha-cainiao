@@ -12,7 +12,8 @@ from custom_components.cainiao.const import (
     DOMAIN,
 )
 
-from .payloads import ACTIVE_CODE, active_sample as _sample, as_map
+from .payloads import ACTIVE_CODE, as_map
+from .payloads import active_sample as _sample
 
 OTHER_CODE = "LP00222222222"
 
