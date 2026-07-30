@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.cainiao import parcels as parcels_module
 from custom_components.cainiao.const import (
     CONF_DELIVERED_FILTER_AMOUNT,
     CONF_DELIVERED_FILTER_TYPE,
@@ -106,6 +107,26 @@ def test_unmapped_action_warns_only_once(caplog):
     assert map_event_status("ABDUCTED_BY_ALIENS") is None
     assert caplog.text.count("ABDUCTED_BY_ALIENS") == 1
     assert "issues/new" in caplog.text
+
+
+def test_possible_eta_field_warns_once(caplog):
+    """An ETA-looking field is flagged once (whether Cainiao exposes a window is
+    an open question), keys only, with an issue link."""
+    parcels_module._possible_eta_logged = False
+    raw = {"mailNo": "LP123", "estimatedDeliveryTime": 1784203767167}
+    normalize_parcel(raw)
+    normalize_parcel(raw)
+    assert caplog.text.count("may carry a delivery ETA") == 1
+    assert "estimatedDeliveryTime" in caplog.text
+    assert "1784203767167" not in caplog.text  # keys only, never values
+    assert "issues/new" in caplog.text
+
+
+def test_no_eta_field_is_silent(caplog):
+    """A payload with no ETA-looking field logs nothing."""
+    parcels_module._possible_eta_logged = False
+    normalize_parcel({"mailNo": "LP123", "detailList": []})
+    assert "may carry a delivery ETA" not in caplog.text
 
 
 # ---------------------------------------------------------------------------

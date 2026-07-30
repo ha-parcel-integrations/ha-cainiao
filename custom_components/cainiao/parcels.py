@@ -130,6 +130,46 @@ def _warn_unmapped_action(code: str) -> None:
     )
 
 
+# Cainiao's probed responses carried no delivery window, so ``planned_from`` /
+# ``planned_to`` are hard-coded ``None`` (see TODO.md — "is an ETA ever
+# exposed?"). If a real payload DOES carry an ETA-ish field we want its name so
+# we can wire it up, so we scan the top-level and ``latestTrace`` keys once for
+# the usual suspects and log a one-shot. Keys only, never values.
+# Bare "eta" is deliberately excluded — it is a substring of Cainiao's own
+# ``detailList`` — so only unambiguous multi-character hints are matched.
+_ETA_HINT_RE = re.compile(
+    r"estimat|forecast|expect|predict|promis|deliveryTime|planTime|arrivalTime",
+    re.I,
+)
+_possible_eta_logged = False
+
+
+def _note_possible_eta(raw: dict) -> None:
+    """One-shot: flag any field that might be a delivery ETA we don't map yet."""
+    global _possible_eta_logged
+    if _possible_eta_logged:
+        return
+    latest = raw.get("latestTrace")
+    candidates = sorted(
+        {
+            key
+            for container in (raw, latest if isinstance(latest, dict) else {})
+            for key in container
+            if _ETA_HINT_RE.search(key)
+        }
+    )
+    if not candidates:
+        return
+    _possible_eta_logged = True
+    _LOGGER.warning(
+        "Cainiao payload may carry a delivery ETA we do not map yet (fields=%s). "
+        "planned_from/planned_to are currently always empty — please help us "
+        "confirm so we can wire it up, a diagnostics file is ideal: %s",
+        candidates,
+        NEW_ISSUE_URL,
+    )
+
+
 def _lookup(code: str | None) -> ParcelStatus | None:
     """Look an action code up in :data:`_ACTION_MAP`, warning once if unknown.
 
@@ -314,6 +354,7 @@ def normalize_parcel(raw: dict, *, include_history: bool = False) -> dict:
     and each event's ``timeStr`` / ``timeZone`` (the local wall-clock rendering
     of a timestamp we publish in UTC).
     """
+    _note_possible_eta(raw)
     tracking_code = raw.get("mailNo")
     status = map_parcel_status(raw)
     delivered = status is ParcelStatus.DELIVERED
