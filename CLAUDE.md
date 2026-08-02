@@ -17,114 +17,56 @@ you act in one of these areas:
 | Before you … | Fetch `CONVENTIONS.md` § |
 |---|---|
 | touch entities, sensors, config/options flow, coordinator, diagnostics, translations | *Home Assistant developer docs* (its table points on to the canonical HA page — don't rely on memory) |
-| add/rename a parcel field, a `ParcelStatus`, or a bus event; change the sort/first-refresh; touch unmapped-status logging | *Parcel contract* — the exact key set, units, sort, events and their suppression rules; `test_parcels.py::test_normalize_publishes_exactly_the_canonical_keys` guards the key set |
-| ship anything while below 1.0.0 (unconfirmed data) | *Pre-1.0 releases* — one-shot WARNINGs for every guessed shape/code |
+| add/rename a parcel field, a `ParcelStatus`, or a bus event; change the sort/first-refresh; touch unmapped-status logging | *Parcel contract* — key set, units, sort, events + suppression; `test_parcels.py::test_normalize_publishes_exactly_the_canonical_keys` guards the key set |
+| ship anything while below 1.0.0 (no fully populated response of our own yet) | *Pre-1.0 releases* — one-shot WARNINGs for every guessed shape/code |
 | consider "fixing" a lint/pattern the skill flags (poll interval, inline client) | *Deliberate skill divergences* |
 | commit, bump, tag, release, or write release notes; add a feature without a test | *Workflow / Commits / Versioning / Testing* |
+
+**API mechanics live in `docs/api/` (local-only, gitignored)** — the keyless
+`detail.json` endpoint, its batched `mailNos` query, the empty-response /
+`success:false` signalling, the payload→canonical mapping and the action-code
+vocabulary. Do not duplicate them here.
 
 **Suite-wide tripwires, kept inline on purpose:**
 - **First refresh in `__init__.py`, before `async_forward_entry_setups`** — from
   a forwarded platform HA can't catch `ConfigEntryNotReady` and half-sets-up the
   entry. Runtime-only; tests don't catch a regression.
 - **Setup stale-entity sweep is scoped to `domain == "sensor"` and skips
-  `non_parcel_unique_ids`** — without the domain check it deletes the refresh
-  button; without the exclusion it deletes the summary/diagnostic sensors. Add a
-  new non-parcel sensor's unique_id to that set.
+  `non_parcel_unique_ids`** — else it deletes the refresh button / the
+  summary+diagnostic sensors. Add a new non-parcel sensor's unique_id to the set.
 - **Per-parcel sensors are removed by the summary sensor** via
   `entity_registry.async_remove` (self-removal races and leaves ghosts).
 
-## Carrier-specific notes
+## Carrier-specific decisions (integration only)
 
-Cainiao is not a national carrier — it is Alibaba's **tracking layer** for
-cross-border parcels (AliExpress, Temu, Shein). That shapes everything:
+Cainiao is Alibaba's cross-border **tracking layer** (AliExpress, Temu, Shein),
+not a national carrier. It sees a parcel weeks before the local carrier, then
+**hands off** the last leg to one — so the same box can appear twice in the
+aggregator. Cainiao exposes nothing about the last leg (no sender/receiver/window/
+pickup/weight); the `None`s in `normalize_parcel` are intentional.
 
-- It sees a parcel from day one, weeks before PostNL/DHL/DPD do — exactly the
-  window a user wants tracked.
-- The parcel is **handed off** to a national carrier for the last leg, so the
-  same box can appear twice in the aggregator (see *Handoff* below).
-- Cainiao exposes nothing about the last leg: no sender/receiver/window/pickup/
-  weight. The `None`s in `normalize_parcel` are intentional, not unfinished.
-
-### The endpoint
-
-```
-GET https://global.cainiao.com/global/detail.json?mailNos={numbers}&lang=en-US
-```
-
-Verified live (July 2026):
-- **No key, no auth, no bot wall.** Real JSON (`application/json`), not
-  `text/plain`.
-- **`mailNos` is plural, comma-separated** — one request returns one `module`
-  per number, so `api.py` **batches** (`MAX_CODES_PER_REQUEST`, 10) instead of
-  fanning out. This is a rate-limit decision, not a micro-opt.
-- **An unknown / not-yet-scanned number is NOT an error**: HTTP 200,
-  `success:true`, empty `detailList`, no `status`. Treating it as failure would
-  make the integration look broken for a parcel's first days.
-- A genuine complaint is HTTP 200 `success:false` — `api.py` raises on that.
-- `TRACKING_LANGUAGE` stays `en-US` (nl-NL returned identical payloads; stable
-  text beats a maybe-missing translation).
-
-### Rate limiting — shapes the integration (non-negotiable without new evidence)
-
-Alibaba soft-bans unusual traffic, and an IP ban costs the user every AliExpress
-service. So:
-1. **`REFRESH_INTERVAL_MINUTES = 360`, no options-flow field** (generated with
-   `--interval fixed`). A parcel crossing a continent for weeks gains nothing
-   from a 15-min poll.
-2. **One batched request per poll**, never a fan-out — a burst of parallel
-   requests is what gets noticed.
-
-The refresh button stays — a single manual poll doesn't flag an IP.
-
-### Payload mapping
-
-| Canonical | Cainiao field |
-|---|---|
-| `barcode` | `mailNo` |
-| `status` | `latestTrace.actionCode`, mapped in `_ACTION_MAP` |
-| `raw_status` | `statusDesc`, falling back to `latestTrace.standerdDesc` |
-| `delivered_at` | `latestTrace.time`, epoch **milliseconds** |
-| `history` | `detailList[]` — `time`, `actionCode`, `standerdDesc`/`desc` |
-| (under `raw`) | `destCpInfo.cpName` — the handoff carrier |
-| (under `raw`) | `copyRealMailNo` / `realMailNo` — the handoff number |
-
-`standerdDesc` is Cainiao's own spelling, not a typo.
-
-- **Status comes from the action codes, not the `status` token.** The
-  `actionCode` vocabulary is published; the summary token's is not.
-  `map_parcel_status` reads the newest timeline entry's `actionCode` (fallback:
-  last `detailList` entry); the `status` token is only `raw_status` filler.
-- `_ACTION_MAP` is cross-checked against two third-party trackers. **Do not add
+- **Rate limiting shapes the integration (non-negotiable without new evidence).**
+  Alibaba soft-bans unusual traffic, and an IP ban costs the user every AliExpress
+  service. So: **`REFRESH_INTERVAL_MINUTES = 360`, no options-flow field**
+  (generated `--interval fixed`), and **one batched request per poll**, never a
+  fan-out. The refresh button stays (a single manual poll doesn't flag an IP).
+- **Handoff data stays under `raw` and is redacted.** The last-leg carrier name
+  and its tracking number stay under `raw` (promoting would be a suite-wide
+  contract change) and are in `TO_REDACT` (either looks the parcel up publicly).
+  Matching a Cainiao parcel to its national-carrier twin belongs in the
+  aggregator, not here.
+- Unrecognised status → `unknown` + one-shot warning. **Do not add status
   mappings without evidence** — a wrong mapping fires events for a state the
-  parcel isn't in. Unrecognised code → `unknown` + one-shot warning.
-- **Trap: `GTMS_STA_SIGNED` is NOT a delivery** — it's the pickup point signing,
-  so it maps to `at_pickup_point`. `GTMS_SIGNED` (no `STA`) is the real one.
+  parcel isn't in.
 
-### Handoff and double-counting
+## Options and reloads — account-less model
 
-`destCpInfo.cpName` names the last-leg national carrier; `copyRealMailNo` /
-`realMailNo` give its tracking number (`handoff_number()` extracts it). Both stay
-**under `raw`** (promoting would be a suite-wide contract change) and are in
-`TO_REDACT` (either looks the parcel up publicly). Matching a Cainiao parcel to
-its PostNL twin belongs in the aggregator, not here.
-
-### Confidence (pre-1.0)
-
-Verified live: the envelope + empty response. Solid but not captured: the field
-names (published schema). Cross-checked not exhaustive: the action-code
-vocabulary. Still missing: one fully populated response of our own — treat the
-populated shape as well-evidenced, not confirmed. See `TODO.md`.
-
-## Options and reloads — account-less model (do not mix with account-based)
-
-The options flow is **one sectioned form**; changes apply without a restart.
-Cainiao is **account-less**, so it uses the **update-listener** model: the
-listener retunes `coordinator.update_interval` and calls
-`async_request_refresh()`, so added/removed parcel sensors appear immediately.
-(Account-based carriers instead call `async_schedule_reload` and register **no**
-listener — combining a listener with a reload-on-update flow is deprecated,
-error in HA 2026.12+.) Cainiao's fixed cadence means there is no polling option
-at all here.
+The options flow is one sectioned form; changes apply without a restart.
+Account-less carriers (this one) use the **update-listener** model (retunes
+`coordinator.update_interval` + `async_request_refresh()`). Account-based carriers
+instead call `async_schedule_reload` with **no** listener (combining the two is
+deprecated, error in HA 2026.12+). Cainiao's fixed cadence means no polling option
+at all here. The user-tunable interval elsewhere is a deliberate HACS divergence.
 
 ## Module layout
 
@@ -139,15 +81,14 @@ at all here.
 | `diagnostics.py` | partly (`TO_REDACT`) |
 | `services.py` (`track_parcel` / `untrack_parcel`) | no |
 
-`parcels.py` is deliberately free of I/O and HA objects so the per-carrier part
-stays unit-testable without Home Assistant. Config: `ConfigEntry.runtime_data`
-(typed, no `hass.data`), `PARALLEL_UPDATES = 0`, coordinator takes
-`config_entry=entry`. `aiohttp.ClientError` is caught **per parcel** in the
-gather loop (one bad parcel doesn't fail the poll) but **not** around the whole
-update (the coordinator wraps that). Entities: `has_entity_name` +
-`translation_key`, `icons.json`, translated units, `_attr_attribution`,
-`_unrecorded_attributes` on anything with a parcel list or `raw`. Over-redact
-diagnostics — they get pasted into public issues.
+`parcels.py` is free of I/O and HA objects so the per-carrier part stays
+unit-testable. Config: `ConfigEntry.runtime_data` (typed, no `hass.data`),
+`PARALLEL_UPDATES = 0`, coordinator takes `config_entry=entry`.
+`aiohttp.ClientError` is caught **per parcel** in the gather loop (one bad parcel
+doesn't fail the poll) but **not** around the whole update (coordinator wraps
+that). Entities: `has_entity_name` + `translation_key`, `icons.json`, translated
+units, `_attr_attribution`, `_unrecorded_attributes` on anything with a parcel
+list or `raw`. Over-redact diagnostics — they get pasted into public issues.
 
 ## Tests on Windows
 
