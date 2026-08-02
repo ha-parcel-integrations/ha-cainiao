@@ -40,8 +40,6 @@ ENV/
 # Claude Code (local)
 .claude/
 
-# Local-only API / reverse-engineering notes (never published)
-docs/api/
 
 # Local working notes, never committed
 TODO.md
