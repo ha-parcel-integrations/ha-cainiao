@@ -28,6 +28,21 @@ class ParcelStatus(StrEnum):
 
 PLATFORMS = [Platform.BUTTON, Platform.CALENDAR, Platform.SENSOR]
 
+# Every optional key the parcel contract defines. CAPABILITIES below must be a
+# subset of this — it exists so a typo in CAPABILITIES fails a test instead of
+# silently dropping this carrier off a table on the docs site.
+KNOWN_CAPABILITIES = frozenset(
+    {"weight", "dimensions", "delivery_window", "pickup_point", "url", "history"}
+)
+
+# Which optional contract fields this carrier's API actually populates — feeds
+# the comparison table on the docs site. Keep in lockstep with
+# normalize_parcel() in parcels.py: everything not listed here comes back as a
+# literal None there. Cainiao exposes nothing about the last leg — no
+# sender/receiver/delivery window/pickup point/weight — see the note above
+# _STATUS_MAP in parcels.py.
+CAPABILITIES = frozenset({"url", "history"})
+
 # Cainiao's public tracking endpoint — the one its own consumer tracking page
 # calls. Verified live (July 2026):
 #

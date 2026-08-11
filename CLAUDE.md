@@ -43,7 +43,9 @@ Cainiao is Alibaba's cross-border **tracking layer** (AliExpress, Temu, Shein),
 not a national carrier. It sees a parcel weeks before the local carrier, then
 **hands off** the last leg to one — so the same box can appear twice in the
 aggregator. Cainiao exposes nothing about the last leg (no sender/receiver/window/
-pickup/weight); the `None`s in `normalize_parcel` are intentional.
+pickup/weight); the `None`s in `normalize_parcel` are intentional and reflected
+in `const.py`'s `CAPABILITIES` (feeds the docs site's comparison table) — keep
+the two in agreement if that ever changes.
 
 - **Rate limiting shapes the integration (non-negotiable without new evidence).**
   Alibaba soft-bans unusual traffic, and an IP ban costs the user every AliExpress

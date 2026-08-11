@@ -11,9 +11,11 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.cainiao import parcels as parcels_module
 from custom_components.cainiao.const import (
+    CAPABILITIES,
     CONF_DELIVERED_FILTER_AMOUNT,
     CONF_DELIVERED_FILTER_TYPE,
     DOMAIN,
+    KNOWN_CAPABILITIES,
     ParcelStatus,
 )
 from custom_components.cainiao.parcels import (
@@ -258,6 +260,16 @@ def test_normalize_leaves_last_leg_fields_empty():
     ):
         assert parcel[key] is None, key
     assert parcel["pickup"] is False
+
+
+def test_capabilities_are_known_values():
+    """A typo here would silently misreport this carrier on the docs site."""
+    assert CAPABILITIES <= KNOWN_CAPABILITIES
+
+
+def test_capabilities_match_the_last_leg_gap():
+    """CAPABILITIES must agree with test_normalize_leaves_last_leg_fields_empty."""
+    assert CAPABILITIES == {"url", "history"}
 
 
 def test_normalize_history_is_opt_in():
