@@ -39,6 +39,3 @@ ENV/
 
 # Claude Code (local)
 .claude/
-
-
-# Local working notes, never committed
