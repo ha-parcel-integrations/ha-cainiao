@@ -42,10 +42,16 @@ vocabulary. Do not duplicate them here.
 Cainiao is Alibaba's cross-border **tracking layer** (AliExpress, Temu, Shein),
 not a national carrier. It sees a parcel weeks before the local carrier, then
 **hands off** the last leg to one — so the same box can appear twice in the
-aggregator. Cainiao exposes nothing about the last leg (no sender/receiver/window/
+aggregator. Cainiao exposes nothing about the last leg (no sender/receiver/
 pickup/weight); the `None`s in `normalize_parcel` are intentional and reflected
 in `const.py`'s `CAPABILITIES` (feeds the docs site's comparison table) — keep
 the two in agreement if that ever changes.
+
+- **`planned_from` / `planned_to` come from `globalEtaInfo`** (confirmed live
+  2026-08-24) — `deliveryMinTime`/`deliveryMaxTime`, epoch ms. `planned_to` is
+  `None` when the two agree (the only payload seen so far had them identical,
+  so it's treated as a point estimate, not a window). Cleared to `None` on a
+  delivered parcel, same as every other carrier in the suite.
 
 - **Rate limiting shapes the integration (non-negotiable without new evidence).**
   Alibaba soft-bans unusual traffic, and an IP ban costs the user every AliExpress

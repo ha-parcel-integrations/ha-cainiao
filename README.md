@@ -6,23 +6,22 @@
 
 > 💬 Questions or feedback? Join the discussion on the [Home Assistant community](https://community.home-assistant.io/t/packages-postnl-dhl-nl-dpd-and-gls-parcel-integration/112433/).
 
-> ### ⚠️ Early release — the mapping is well-evidenced, not yet confirmed
->
-> Everything works: parcels are polled, mapped, and published as sensors,
-> events and a calendar. The field names come from Cainiao's published response
-> schema and the status codes are cross-checked between two independently
-> maintained trackers.
->
-> What is missing is a **fully populated response captured from a real parcel**.
-> Only the "unknown tracking number" response has been verified first-hand. So
-> if something reads oddly, it is worth reporting rather than assuming it is
-> your parcel — see [How you can help](#how-you-can-help).
-
 A custom Home Assistant integration that tracks cross-border parcels through [Cainiao](https://global.cainiao.com) — Alibaba's tracking layer for AliExpress, Temu, Shein and similar shops. No account is needed: you enter the tracking number yourself, just like on Cainiao's own tracking page.
 
 **Why this and not your national carrier's integration?** A parcel from China is invisible to PostNL, DHL or DPD until it reaches their network, often two weeks after you ordered. Cainiao sees it from the day it ships. Once a local carrier takes over the last leg, that carrier's integration takes over too — so the two complement each other rather than compete.
 
 Part of the [ha-parcel-integrations](https://github.com/ha-parcel-integrations) family: it publishes the same canonical parcel format, statuses and events as the other carrier integrations, so it plugs straight into the [Parcel Aggregator](https://github.com/ha-parcel-integrations/ha-parcel-aggregator) and cross-carrier automations.
+
+> ### ℹ️ Happy path confirmed against real parcels
+>
+> The endpoint is live and keyless, and unknown or not-yet-scanned numbers are
+> handled correctly. The success payload — action codes, the delivery-window
+> ETA, the handoff-carrier fields — has been confirmed against real
+> cross-border parcels. An action code outside the mapped set still reports
+> **`unknown`** (never a wrong status) and logs a one-shot warning with a
+> ready-made issue link — please
+> [report it](https://github.com/ha-parcel-integrations/ha-cainiao/issues/new?template=unrecognised_status.yml)
+> so the mapping can keep growing.
 
 ## Contents
 

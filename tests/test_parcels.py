@@ -9,7 +9,6 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.cainiao import parcels as parcels_module
 from custom_components.cainiao.const import (
     CAPABILITIES,
     CONF_DELIVERED_FILTER_AMOUNT,
@@ -122,26 +121,6 @@ def test_unmapped_action_warns_only_once(caplog):
     assert "issues/new" in caplog.text
 
 
-def test_possible_eta_field_warns_once(caplog):
-    """An ETA-looking field is flagged once (whether Cainiao exposes a window is
-    an open question), keys only, with an issue link."""
-    parcels_module._possible_eta_logged = False
-    raw = {"mailNo": "LP123", "estimatedDeliveryTime": 1784203767167}
-    normalize_parcel(raw)
-    normalize_parcel(raw)
-    assert caplog.text.count("may carry a delivery ETA") == 1
-    assert "estimatedDeliveryTime" in caplog.text
-    assert "1784203767167" not in caplog.text  # keys only, never values
-    assert "issues/new" in caplog.text
-
-
-def test_no_eta_field_is_silent(caplog):
-    """A payload with no ETA-looking field logs nothing."""
-    parcels_module._possible_eta_logged = False
-    normalize_parcel({"mailNo": "LP123", "detailList": []})
-    assert "may carry a delivery ETA" not in caplog.text
-
-
 # ---------------------------------------------------------------------------
 # timestamps
 # ---------------------------------------------------------------------------
@@ -178,6 +157,12 @@ def test_handoff_number_extracts_from_the_display_string():
 def test_handoff_number_is_none_when_absent():
     assert handoff_number(UNKNOWN_MODULE_ENTRY) is None
     assert handoff_number({"realMailNo": "handed over locally"}) is None
+
+
+def test_handoff_number_extracts_from_a_label_prefixed_display_string():
+    """Confirmed live 2026-08-24: no carrier name, just a label and a tab."""
+    raw = {"realMailNo": "Latest Tracking Number:\tRC052807407EE"}
+    assert handoff_number(raw) == "RC052807407EE"
 
 
 # ---------------------------------------------------------------------------
@@ -260,15 +245,7 @@ def test_normalize_active_parcel():
 def test_normalize_leaves_last_leg_fields_empty():
     """Cainiao exposes none of these; the local carrier's integration does."""
     parcel = normalize_parcel(active_sample())
-    for key in (
-        "sender",
-        "receiver",
-        "planned_from",
-        "planned_to",
-        "pickup_point",
-        "weight",
-        "dimensions",
-    ):
+    for key in ("sender", "receiver", "pickup_point", "weight", "dimensions"):
         assert parcel[key] is None, key
     assert parcel["pickup"] is False
 
@@ -280,7 +257,41 @@ def test_capabilities_are_known_values():
 
 def test_capabilities_match_the_last_leg_gap():
     """CAPABILITIES must agree with test_normalize_leaves_last_leg_fields_empty."""
-    assert CAPABILITIES == {"url", "history"}
+    assert CAPABILITIES == {"url", "history", "delivery_window"}
+
+
+def test_normalize_active_parcel_reports_eta_window():
+    """globalEtaInfo (confirmed live 2026-08-24) becomes planned_from/planned_to."""
+    parcel = normalize_parcel(active_sample())
+    assert parcel["planned_from"] == to_iso_timestamp(1_787_800_000_000)
+    assert parcel["planned_to"] == to_iso_timestamp(1_787_900_000_000)
+
+
+def test_normalize_delivered_parcel_clears_eta():
+    """The ETA is meaningless once the parcel has actually arrived."""
+    parcel = normalize_parcel(delivered_sample())
+    assert parcel["planned_from"] is None
+    assert parcel["planned_to"] is None
+
+
+def test_normalize_eta_point_estimate_has_no_planned_to():
+    """A payload where deliveryMinTime == deliveryMaxTime is a point estimate."""
+    raw = active_sample()
+    raw["globalEtaInfo"] = {
+        "deliveryMinTime": 1_787_800_000_000,
+        "deliveryMaxTime": 1_787_800_000_000,
+    }
+    parcel = normalize_parcel(raw)
+    assert parcel["planned_from"] == to_iso_timestamp(1_787_800_000_000)
+    assert parcel["planned_to"] is None
+
+
+def test_normalize_missing_eta_leaves_window_empty():
+    raw = active_sample()
+    del raw["globalEtaInfo"]
+    parcel = normalize_parcel(raw)
+    assert parcel["planned_from"] is None
+    assert parcel["planned_to"] is None
 
 
 def test_normalize_history_is_opt_in():

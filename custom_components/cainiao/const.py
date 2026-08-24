@@ -38,10 +38,11 @@ KNOWN_CAPABILITIES = frozenset(
 # Which optional contract fields this carrier's API actually populates — feeds
 # the comparison table on the docs site. Keep in lockstep with
 # normalize_parcel() in parcels.py: everything not listed here comes back as a
-# literal None there. Cainiao exposes nothing about the last leg — no
-# sender/receiver/delivery window/pickup point/weight — see the note above
+# literal None there. Cainiao exposes a delivery-window ETA
+# (globalEtaInfo, confirmed live 2026-08-24) but nothing else about the last
+# leg — no sender/receiver/pickup point/weight — see the note above
 # _STATUS_MAP in parcels.py.
-CAPABILITIES = frozenset({"url", "history"})
+CAPABILITIES = frozenset({"url", "history", "delivery_window"})
 
 # Cainiao's public tracking endpoint — the one its own consumer tracking page
 # calls. Verified live (July 2026):

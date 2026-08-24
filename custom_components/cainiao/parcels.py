@@ -148,46 +148,6 @@ def _warn_unmapped_action(code: str) -> None:
     )
 
 
-# Cainiao's probed responses carried no delivery window, so ``planned_from`` /
-# ``planned_to`` are hard-coded ``None`` (see TODO.md — "is an ETA ever
-# exposed?"). If a real payload DOES carry an ETA-ish field we want its name so
-# we can wire it up, so we scan the top-level and ``latestTrace`` keys once for
-# the usual suspects and log a one-shot. Keys only, never values.
-# Bare "eta" is deliberately excluded — it is a substring of Cainiao's own
-# ``detailList`` — so only unambiguous multi-character hints are matched.
-_ETA_HINT_RE = re.compile(
-    r"estimat|forecast|expect|predict|promis|deliveryTime|planTime|arrivalTime",
-    re.I,
-)
-_possible_eta_logged = False
-
-
-def _note_possible_eta(raw: dict) -> None:
-    """One-shot: flag any field that might be a delivery ETA we don't map yet."""
-    global _possible_eta_logged
-    if _possible_eta_logged:
-        return
-    latest = raw.get("latestTrace")
-    candidates = sorted(
-        {
-            key
-            for container in (raw, latest if isinstance(latest, dict) else {})
-            for key in container
-            if _ETA_HINT_RE.search(key)
-        }
-    )
-    if not candidates:
-        return
-    _possible_eta_logged = True
-    _LOGGER.warning(
-        "Cainiao payload may carry a delivery ETA we do not map yet (fields=%s). "
-        "planned_from/planned_to are currently always empty — please help us "
-        "confirm so we can wire it up, a diagnostics file is ideal: %s",
-        candidates,
-        NEW_ISSUE_URL,
-    )
-
-
 def _lookup(code: str | None) -> ParcelStatus | None:
     """Look an action code up in :data:`_ACTION_MAP`, warning once if unknown.
 
@@ -358,11 +318,16 @@ def normalize_parcel(raw: dict, *, include_history: bool = False) -> dict:
     * **``sender`` / ``receiver``** — the endpoint is anonymous, keyed on the
       number alone, so it names neither party. ``destCpInfo.cpName`` is the
       *handoff carrier*, not the sender, and lives under ``raw``.
-    * **``planned_from`` / ``planned_to``** — no delivery window is exposed for
-      the cross-border leg. Once a parcel is handed to a local carrier, that
-      carrier's own integration is where an ETA appears.
-    * **``pickup`` / ``pickup_point``** — likewise a last-leg concept.
+    * **``pickup`` / ``pickup_point``** — a last-leg concept; Cainiao never
+      exposes a local pickup point of its own.
     * **``weight`` / ``dimensions``** — never exposed on consumer tracking.
+
+    ``planned_from`` / ``planned_to`` come from ``globalEtaInfo.deliveryMinTime``
+    / ``deliveryMaxTime`` (confirmed live 2026-08-24). ``planned_to`` is left
+    ``None`` when the two agree — Cainiao's own numbers matched exactly on the
+    one payload seen so far, so treat that as a point estimate until a payload
+    with a genuine spread turns up. A delivered parcel has ``delivered_at`` set
+    and both cleared — the ETA is meaningless once it has arrived.
 
     ``delivered_at`` comes from the latest trace's timestamp, which is the
     delivery scan once the parcel is delivered.
@@ -372,12 +337,17 @@ def normalize_parcel(raw: dict, *, include_history: bool = False) -> dict:
     and each event's ``timeStr`` / ``timeZone`` (the local wall-clock rendering
     of a timestamp we publish in UTC).
     """
-    _note_possible_eta(raw)
     tracking_code = raw.get("mailNo")
     status = map_parcel_status(raw)
     delivered = status is ParcelStatus.DELIVERED
 
     latest_trace = raw.get("latestTrace") or {}
+
+    eta = raw.get("globalEtaInfo") or {}
+    planned_from = to_iso_timestamp(eta.get("deliveryMinTime"))
+    planned_to = to_iso_timestamp(eta.get("deliveryMaxTime"))
+    if planned_to == planned_from:
+        planned_to = None
 
     return {
         "carrier": "Cainiao",
@@ -393,8 +363,8 @@ def normalize_parcel(raw: dict, *, include_history: bool = False) -> dict:
         "delivered_at": (
             to_iso_timestamp(latest_trace.get("time")) if delivered else None
         ),
-        "planned_from": None,
-        "planned_to": None,
+        "planned_from": None if delivered else planned_from,
+        "planned_to": None if delivered else planned_to,
         "pickup": status is ParcelStatus.AT_PICKUP_POINT,
         "pickup_point": None,
         "url": tracking_url(tracking_code),

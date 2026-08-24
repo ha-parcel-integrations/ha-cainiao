@@ -2,8 +2,9 @@
 
 Shaped after the live endpoint. The **empty** case below is verbatim from a real
 response (July 2026). The populated ones are built from the documented response
-schema and the published ``actionCode`` vocabulary; the field *names* are solid,
-but no fully populated response has been captured yet — see TODO.md.
+schema and the published ``actionCode`` vocabulary, cross-checked against a real
+populated response captured 2026-08-24 (see ``carrier-research/cainiao/``) —
+including ``globalEtaInfo``, the delivery-window ETA.
 """
 from __future__ import annotations
 
@@ -44,6 +45,11 @@ def delivered_sample(code: str = DELIVERED_CODE) -> dict:
         "copyRealMailNo": "3SDFC0123456789",
         "realMailNo": "PostNL 3SDFC0123456789",
         "destCpInfo": {"cpName": "PostNL", "cpCode": "POSTNL"},
+        "globalEtaInfo": {
+            "etaDesc": "Estimated delivery by",
+            "deliveryMinTime": 1_787_800_000_000,
+            "deliveryMaxTime": 1_787_900_000_000,
+        },
         "latestTrace": trace("GTMS_SIGNED", 1_777_200_000_000, "Delivered"),
         "detailList": [
             trace("GTMS_SIGNED", 1_777_200_000_000, "Delivered"),
