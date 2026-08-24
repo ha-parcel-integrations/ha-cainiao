@@ -35,6 +35,8 @@ from .payloads import (
     active_sample,
     delivered_sample,
     pickup_sample,
+    real_active_sample,
+    real_delivered_sample,
     trace,
 )
 
@@ -326,6 +328,42 @@ def test_normalize_pickup_parcel_is_not_delivered():
 def test_normalize_keeps_raw_payload():
     raw = active_sample()
     assert normalize_parcel(raw)["raw"] is raw
+
+
+# ---------------------------------------------------------------------------
+# real payloads (issue #6 — a user's diagnostics export, 2026-08-24)
+# ---------------------------------------------------------------------------
+
+
+def test_normalize_real_delivered_parcel():
+    """GTMS_SIGNED, GTMS_DO_DEPART and CC_IM_SUCCESS confirmed on real data."""
+    parcel = normalize_parcel(real_delivered_sample())
+    assert parcel["status"] == ParcelStatus.DELIVERED
+    assert parcel["delivered"] is True
+    assert parcel["delivered_at"] == "2026-02-06T07:25:17+00:00"
+    assert parcel["planned_from"] is None
+    assert parcel["planned_to"] is None
+    assert parcel["pickup"] is False
+
+
+def test_normalize_real_delivered_parcel_history():
+    history = normalize_parcel(real_delivered_sample(), include_history=True)[
+        "history"
+    ]
+    assert len(history) == 7
+    assert history[0]["status"] == ParcelStatus.IN_TRANSIT  # PU_PICKUP_SUCCESS
+    assert history[-2]["status"] == ParcelStatus.OUT_FOR_DELIVERY  # GTMS_DO_DEPART
+    assert history[-1]["status"] == ParcelStatus.DELIVERED  # GTMS_SIGNED
+
+
+def test_normalize_real_active_parcel():
+    """CC_HO_OUT_SUCCESS and the point-estimate ETA confirmed on real data."""
+    parcel = normalize_parcel(real_active_sample())
+    assert parcel["status"] == ParcelStatus.IN_TRANSIT
+    assert parcel["raw_status"] == "In customs "
+    assert parcel["planned_from"] == "2026-08-27T11:07:58.899000+00:00"
+    assert parcel["planned_to"] is None  # deliveryMinTime == deliveryMaxTime
+    assert handoff_number(real_active_sample()) == "RC000000003EE"
 
 
 # ---------------------------------------------------------------------------
