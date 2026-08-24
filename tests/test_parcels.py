@@ -56,6 +56,17 @@ from .payloads import (
         ("GTMS_SIGNED", ParcelStatus.DELIVERED),
         ("GTMS_STA_SIGN_FAILURE", ParcelStatus.PROBLEM),
         ("EXCEPTION", ParcelStatus.PROBLEM),
+        ("CONSIGN", ParcelStatus.REGISTERED),
+        ("SC_TRANS_INBOUND_SUCCESS", ParcelStatus.IN_TRANSIT),
+        ("SC_TRANS_OUTBOUND_SUCCESS", ParcelStatus.IN_TRANSIT),
+        ("LH_POST_COLLECTION", ParcelStatus.IN_TRANSIT),
+        ("TD_TRANS_DEPART", ParcelStatus.IN_TRANSIT),
+        ("TD_TRANS_ARRIVE", ParcelStatus.IN_TRANSIT),
+        ("TD_TRANS_ARRIVE_C", ParcelStatus.IN_TRANSIT),
+        ("CC_IM_FAILURE", ParcelStatus.PROBLEM),
+        ("CC_IM_EXCEPTION", ParcelStatus.PROBLEM),
+        ("GTMS_OE_DEPART", ParcelStatus.IN_TRANSIT),
+        ("LAST_MILE_ASN_NOTIFY", ParcelStatus.IN_TRANSIT),
     ],
 )
 def test_map_event_status_known(action_code, expected):

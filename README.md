@@ -166,8 +166,9 @@ logger:
 ## How you can help
 
 Cainiao describes each scan with an **action code** — `LH_DEPART`,
-`GTMS_SIGNED`, and so on. The integration maps 31 of them; the list is
-cross-checked against two other trackers, but it is certainly not complete.
+`GTMS_SIGNED`, and so on. The integration maps 41 of them, cross-checked
+against two other trackers plus real-parcel logs from users, but it is
+certainly not complete.
 
 An unrecognised code makes the parcel report `unknown` rather than guessing,
 and writes one line to your log:

@@ -64,6 +64,9 @@ _ACTION_MAP: dict[str, ParcelStatus] = {
     "GWMS_ACCEPT": ParcelStatus.REGISTERED,
     "GWMS_PACKAGE": ParcelStatus.REGISTERED,
     "PRE_READY_TO_SHIP": ParcelStatus.REGISTERED,
+    # Consignment created — the seller has booked the shipment with the
+    # carrier network, same lifecycle stage as the GWMS_* codes above.
+    "CONSIGN": ParcelStatus.REGISTERED,
     # Warehouse and origin-country sorting.
     "CW_INBOUND": ParcelStatus.IN_TRANSIT,
     "CW_OUTBOUND": ParcelStatus.IN_TRANSIT,
@@ -72,6 +75,8 @@ _ACTION_MAP: dict[str, ParcelStatus] = {
     "GWMS_OUTBOUND": ParcelStatus.IN_TRANSIT,
     "SC_INBOUND_SUCCESS": ParcelStatus.IN_TRANSIT,
     "SC_OUTBOUND_SUCCESS": ParcelStatus.IN_TRANSIT,
+    "SC_TRANS_INBOUND_SUCCESS": ParcelStatus.IN_TRANSIT,
+    "SC_TRANS_OUTBOUND_SUCCESS": ParcelStatus.IN_TRANSIT,
     # Export customs.
     "CC_EX_START": ParcelStatus.IN_TRANSIT,
     "CC_EX_SUCCESS": ParcelStatus.IN_TRANSIT,
@@ -80,17 +85,30 @@ _ACTION_MAP: dict[str, ParcelStatus] = {
     "LH_HO_AIRLINE": ParcelStatus.IN_TRANSIT,
     "LH_DEPART": ParcelStatus.IN_TRANSIT,
     "LH_ARRIVE": ParcelStatus.IN_TRANSIT,
+    "LH_POST_COLLECTION": ParcelStatus.IN_TRANSIT,
     "COMMON_INTRANSIT": ParcelStatus.IN_TRANSIT,
+    # Transit depot hops — same leg as line haul, different code family.
+    "TD_TRANS_DEPART": ParcelStatus.IN_TRANSIT,
+    "TD_TRANS_ARRIVE": ParcelStatus.IN_TRANSIT,
+    "TD_TRANS_ARRIVE_C": ParcelStatus.IN_TRANSIT,
     # Import customs in the destination country.
     "CC_HO_IN_SUCCESS": ParcelStatus.IN_TRANSIT,
     "CC_IM_START": ParcelStatus.IN_TRANSIT,
     "CC_IM_SUCCESS": ParcelStatus.IN_TRANSIT,
     "CC_HO_OUT_SUCCESS": ParcelStatus.IN_TRANSIT,
+    # A failed or excepted customs clearance — same FAILURE/EXCEPTION suffix
+    # already mapped to PROBLEM below (GTMS_STA_SIGN_FAILURE, EXCEPTION), so
+    # these get the same treatment rather than being silently swallowed into
+    # IN_TRANSIT.
+    "CC_IM_FAILURE": ParcelStatus.PROBLEM,
+    "CC_IM_EXCEPTION": ParcelStatus.PROBLEM,
     # Handed to the local carrier for the last leg.
     "GTMS_ACCEPT": ParcelStatus.IN_TRANSIT,
     "GTMS_SC_ARRIVE": ParcelStatus.IN_TRANSIT,
     "GTMS_SC_DEPART": ParcelStatus.IN_TRANSIT,
+    "GTMS_OE_DEPART": ParcelStatus.IN_TRANSIT,
     "GTMS_DO_DEPART": ParcelStatus.OUT_FOR_DELIVERY,
+    "LAST_MILE_ASN_NOTIFY": ParcelStatus.IN_TRANSIT,
     # Waiting at a pickup point. ``GTMS_STA_SIGNED`` is the station signing for
     # the parcel, not the recipient — it means "ready to collect", not
     # "delivered", and mapping it to DELIVERED would fire the delivered event
