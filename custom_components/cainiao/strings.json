@@ -46,6 +46,25 @@
               "include_history": "Add a per-parcel history attribute listing each status update (timestamp, status, original text). Off by default."
             }
           }
+        },
+        "menu_options": {
+          "parcels": "Parcels",
+          "settings": "Settings"
+        }
+      },
+      "parcels": {
+        "title": "Parcels",
+        "data": {
+          "tracking_codes": "Tracking codes"
+        }
+      },
+      "settings": {
+        "title": "Settings",
+        "data": {
+          "delivered_filter_type": "Delivered parcels: filter by",
+          "delivered_filter_amount": "Delivered parcels: amount",
+          "include_history": "Include status history",
+          "refresh_interval": "Refresh every"
         }
       }
     },
