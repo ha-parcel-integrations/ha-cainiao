@@ -56,7 +56,6 @@ Part of the [ha-parcel-integrations](https://github.com/ha-parcel-integrations) 
 
 ## Requirements
 
-- Home Assistant 2024.12 or newer
 - A tracking number from your AliExpress, Temu or similar order — usually
   starting with `LP`. No account needed.
 
