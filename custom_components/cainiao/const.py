@@ -41,7 +41,7 @@ KNOWN_CAPABILITIES = frozenset(
 # literal None there. Cainiao exposes a delivery-window ETA
 # (globalEtaInfo, confirmed live 2026-08-24) but nothing else about the last
 # leg — no sender/receiver/pickup point/weight — see the note above
-# _STATUS_MAP in parcels.py.
+# _ACTION_MAP in parcels.py.
 CAPABILITIES = frozenset({"url", "history", "delivery_window"})
 
 # Cainiao's public tracking endpoint — the one its own consumer tracking page

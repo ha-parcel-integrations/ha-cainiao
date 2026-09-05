@@ -82,7 +82,7 @@ at all here. The user-tunable interval elsewhere is a deliberate HACS divergence
 |---|---|
 | `api.py` (HTTP client, error types) | **yes** |
 | `const.py` (domain, URLs, `ParcelStatus`, option keys) | partly (URLs) |
-| `parcels.py` (status map, `normalize_parcel`, history, sort, filters — pure, no I/O) | partly (`_STATUS_MAP`, `normalize_parcel`) |
+| `parcels.py` (status map, `normalize_parcel`, history, sort, filters — pure, no I/O) | partly (`_ACTION_MAP`, `normalize_parcel`) |
 | `coordinator.py` (fetch, cache, event firing) | mostly not |
 | `config_flow.py` | partly (code validation) |
 | `sensor.py` / `button.py` / `calendar.py` / `device_trigger.py` | no |

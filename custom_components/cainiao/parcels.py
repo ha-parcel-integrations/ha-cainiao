@@ -6,7 +6,7 @@ carrier-specific mapping (which you rewrite per carrier) apart from the
 coordinator (which is nearly identical everywhere), and it makes the mapping
 trivially unit-testable without spinning up HA.
 
-The Cainiao-specific parts are :data:`_STATUS_MAP`, :func:`build_history`,
+The Cainiao-specific parts are :data:`_ACTION_MAP`, :func:`build_history`,
 :func:`handoff_number` and :func:`normalize_parcel`. Everything else — the
 timestamp parsing, the sort contract, the delivered filter, the one-shot
 warning for unmapped statuses — is suite-wide machinery, kept identical across
