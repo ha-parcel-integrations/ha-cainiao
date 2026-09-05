@@ -1,5 +1,4 @@
 {
   "kind": "integration",
-  "domain": "cainiao",
-  "research_api_path": "carrier-research/cainiao/api/"
+  "domain": "cainiao"
 }
