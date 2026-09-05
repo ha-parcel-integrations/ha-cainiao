@@ -98,6 +98,7 @@ Standard HA removal applies: **Settings → Devices & Services → Cainiao → �
 | `sensor.cainiao_incoming_parcels` | Number of active tracked parcels, full list under the `parcels` attribute |
 | `sensor.cainiao_parcel_<code>` | One per tracked parcel; state is the canonical status, attributes carry the full normalised parcel |
 | `sensor.cainiao_next_delivery` | Earliest expected delivery moment across all active parcels |
+| `sensor.cainiao_awaiting_pickup` | Number of parcels currently waiting to be collected (`at_pickup_point`), full list under the `parcels` attribute |
 | `sensor.cainiao_delivered_parcels` | Recently delivered parcels (see the retention option) |
 | `sensor.cainiao_last_successful_update` | Diagnostic: when Cainiao was last polled successfully |
 
