@@ -75,6 +75,15 @@ class CainiaoCoordinator(DataUpdateCoordinator[list[dict]]):
         # dropping its sensor. Lives for the integration's lifetime (resets on
         # restart).
         self._raw_cache: dict[str, dict] = {}
+        # Tracking codes confirmed delivered on a prior refresh — excluded
+        # from the batch fetch this cycle since a delivered parcel's payload
+        # can never change again. Keyed on the code the request was made
+        # with, not the barcode. Lives for the integration's lifetime
+        # (resets on restart). Orthogonal to the fixed-interval/throttling
+        # divergence this carrier already carries (§5.3) — this only ever
+        # shrinks the request, which is strictly safer for a carrier that
+        # soft-bans unusual traffic.
+        self._delivered_codes: set[str] = set()
         # barcode -> last seen ParcelStatus / (planned_from, planned_to).
         # ``None`` on the first refresh so events are suppressed for parcels
         # that already existed when the integration started — otherwise every
@@ -88,6 +97,11 @@ class CainiaoCoordinator(DataUpdateCoordinator[list[dict]]):
         self._cached_device_id: str | None = None
         # Timestamp of the last successful poll (diagnostic sensor).
         self.last_success_time: datetime | None = None
+
+    @property
+    def delivered_codes(self) -> set[str]:
+        """Tracking codes currently skipped from the fetch (diagnostics only)."""
+        return self._delivered_codes
 
     def _device_id(self) -> str | None:
         """Resolve (and cache) this entry's device id for event payloads."""
@@ -131,36 +145,56 @@ class CainiaoCoordinator(DataUpdateCoordinator[list[dict]]):
         self._raw_cache = {
             code: raw for code, raw in self._raw_cache.items() if code in tracked_codes
         }
+        self._delivered_codes &= tracked_codes
+
+        # A delivered parcel's payload can never change again, so it is
+        # dropped from the batch — not from ``codes``/the options list, which
+        # stays untouched until the user removes it by hand. This only ever
+        # shrinks the request, which is strictly safer for a carrier that
+        # soft-bans unusual traffic.
+        codes_to_fetch = [code for code in codes if code not in self._delivered_codes]
 
         # One batched request for everything, rather than the per-parcel gather
         # the other suite carriers use. Cainiao's endpoint takes a
         # comma-separated ``mailNos`` list, and a burst of parallel requests is
         # precisely the traffic pattern Alibaba throttles on.
-        fetched = await self._client.async_get_parcels(codes)
+        fetched = await self._client.async_get_parcels(codes_to_fetch)
 
-        raws: list[dict] = []
-        for code in codes:
+        raws_by_code: dict[str, dict] = {}
+        for code in codes_to_fetch:
             entry = fetched.get(code)
             if entry is None:
                 # Cainiao did not answer for this number. Fall back to the last
                 # payload we saw, or to a placeholder so the parcel the user
                 # asked us to track stays visible as "unknown" rather than
                 # vanishing.
-                raws.append(self._raw_cache.get(code) or {"mailNo": code})
+                raws_by_code[code] = self._raw_cache.get(code) or {"mailNo": code}
                 continue
 
             # An edge payload can come back without its own number; fall back to
             # the one we asked for so the sensor keeps its key.
             entry.setdefault("mailNo", code)
             self._raw_cache[code] = entry
-            raws.append(entry)
+            raws_by_code[code] = entry
+
+        # Codes skipped from the batch above (already confirmed delivered) —
+        # re-add their cached payload so the delivered sensor keeps its data
+        # until the retention filter drops it.
+        for code in self._delivered_codes:
+            cached = self._raw_cache.get(code)
+            if cached is not None:
+                raws_by_code[code] = cached
 
         include_history = self._include_history
-        normalized = [
-            normalize_parcel(raw, include_history=include_history) for raw in raws
+        entries = [
+            (code, normalize_parcel(raw, include_history=include_history))
+            for code, raw in raws_by_code.items()
         ]
-        active = [parcel for parcel in normalized if not parcel["delivered"]]
-        delivered = [parcel for parcel in normalized if parcel["delivered"]]
+        active = [parcel for _, parcel in entries if not parcel["delivered"]]
+        delivered = [parcel for _, parcel in entries if parcel["delivered"]]
+        # Rebuilt fresh from this cycle's data — a code whose payload just
+        # flipped to delivered is skipped starting next cycle.
+        self._delivered_codes = {code for code, parcel in entries if parcel["delivered"]}
 
         self.delivered = apply_delivered_filter(
             sort_parcels_by_ts(delivered, "delivered_at", descending=True),

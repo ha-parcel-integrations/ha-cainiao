@@ -19,10 +19,15 @@ async def test_diagnostics_redacts_and_counts(hass):
     entry.options = {"parcels": [{"tracking_code": DELIVERED_CODE}]}
     entry.runtime_data.coordinator.data = [normalize_parcel(delivered_sample())]
     entry.runtime_data.coordinator.delivered = []
+    entry.runtime_data.coordinator.delivered_codes = set()
 
     result = await async_get_config_entry_diagnostics(hass, entry)
 
-    assert result["counts"] == {"incoming_active": 1, "delivered": 0}
+    assert result["counts"] == {
+        "incoming_active": 1,
+        "delivered": 0,
+        "skipped_from_fetch": 0,
+    }
     assert result["entry_options"]["parcels"][0]["tracking_code"] == "**REDACTED**"
 
     parcel = result["incoming"][0]

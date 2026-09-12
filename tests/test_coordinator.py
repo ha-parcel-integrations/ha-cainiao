@@ -105,6 +105,41 @@ async def test_update_asks_for_every_code_in_one_call(hass):
     client.async_get_parcels.assert_awaited_once_with([ACTIVE_CODE, DELIVERED_CODE])
 
 
+async def test_delivered_code_skipped_from_fetch(hass):
+    """A delivered code stops being fetched from the next cycle on."""
+    entry = _entry_with([ACTIVE_CODE, DELIVERED_CODE])
+    entry.add_to_hass(hass)
+    client = _returning(active_sample(), delivered_sample())
+    coordinator = CainiaoCoordinator(hass, client, entry)
+
+    await coordinator._async_update_data()
+    client.async_get_parcels.assert_awaited_with([ACTIVE_CODE, DELIVERED_CODE])
+    assert coordinator.delivered_codes == {DELIVERED_CODE}
+
+    client.async_get_parcels.return_value = {ACTIVE_CODE: active_sample()}
+    data = await coordinator._async_update_data()
+
+    # Only the still-active code is fetched — the delivered one is skipped.
+    client.async_get_parcels.assert_awaited_with([ACTIVE_CODE])
+    assert any(p["barcode"] == DELIVERED_CODE for p in coordinator.delivered)
+    assert data[0]["barcode"] == ACTIVE_CODE
+
+
+async def test_delivered_code_forgotten_when_untracked(hass):
+    """Untracking a delivered code drops it from the skip set too."""
+    entry = _entry_with([DELIVERED_CODE])
+    entry.add_to_hass(hass)
+    client = _returning(delivered_sample())
+    coordinator = CainiaoCoordinator(hass, client, entry)
+
+    await coordinator._async_update_data()
+    assert coordinator.delivered_codes == {DELIVERED_CODE}
+
+    hass.config_entries.async_update_entry(entry, options={CONF_PARCELS: []})
+    await coordinator._async_update_data()
+    assert coordinator.delivered_codes == set()
+
+
 async def test_unanswered_code_shows_a_pending_placeholder(hass):
     """A number Cainiao says nothing about must not make its sensor vanish."""
     entry = _entry_with([OTHER_CODE])
