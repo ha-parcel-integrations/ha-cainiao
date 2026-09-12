@@ -30,21 +30,6 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-# A Cainiao tracking number, as shown in an AliExpress order or a shipping
-# confirmation mail. Cainiao's own label format is ``LP`` followed by 12-18
-# digits, but Cainiao is a tracking *layer* rather than a carrier: it also
-# answers for UPU S10 numbers (two letters, nine digits, a country code — e.g.
-# ``RS123456789NL``) and for the local carriers it hands parcels off to.
-#
-# So this stays deliberately loose — upper-case alphanumeric, 8 to 30 characters.
-# Rejecting a number the endpoint would happily answer for is far more annoying
-# than accepting one that simply comes back "not found" on the next poll, and
-# the endpoint treats an unknown number as a normal, non-error response anyway.
-#
-# The e-mail-parsing example automation is stricter on purpose: matching *this*
-# pattern against prose would hit every order number in the mail.
-_TRACKING_CODE_RE = re.compile(r"^[A-Z0-9]{8,30}$")
-
 
 def normalize_tracking_code(value: str) -> str:
     """Return the tracking code upper-cased with separators stripped.
@@ -57,8 +42,8 @@ def normalize_tracking_code(value: str) -> str:
 
 
 def valid_tracking_code(value: str) -> bool:
-    """Whether ``value`` looks like a Cainiao tracking code."""
-    return bool(_TRACKING_CODE_RE.match(value))
+    """Accept every non-empty code; Cainiao is a tracking layer over many carriers' own formats."""
+    return bool(value)
 
 
 def _current_parcels(entry: ConfigEntry) -> list[dict[str, str]]:
