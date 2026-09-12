@@ -36,10 +36,9 @@ _LOGGER = logging.getLogger(__name__)
 def _refresh_interval(entry: ConfigEntry) -> timedelta:
     """Return the fixed refresh interval as a ``timedelta``.
 
-    Not user-configurable on purpose: this carrier throttles or soft-bans
-    unusual traffic, so letting users dial the cadence down would get them
-    blocked. Same signature as the configurable variant, so nothing else in
-    the integration cares which one is compiled in.
+    Fixed rather than dynamic on purpose: this carrier throttles or soft-bans
+    unusual traffic, which is why it is the suite's only permanent exclusion
+    from the dynamic, status-driven schedule every other carrier runs.
     """
     return timedelta(minutes=REFRESH_INTERVAL_MINUTES)
 

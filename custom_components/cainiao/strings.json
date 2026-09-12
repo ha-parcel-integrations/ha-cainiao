@@ -63,8 +63,7 @@
         "data": {
           "delivered_filter_type": "Delivered parcels: filter by",
           "delivered_filter_amount": "Delivered parcels: amount",
-          "include_history": "Include status history",
-          "refresh_interval": "Refresh every"
+          "include_history": "Include status history"
         }
       }
     },

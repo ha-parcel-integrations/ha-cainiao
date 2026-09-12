@@ -63,8 +63,7 @@
         "data": {
           "delivered_filter_type": "Bezorgde pakketten: filteren op",
           "delivered_filter_amount": "Bezorgde pakketten: aantal",
-          "include_history": "Statusgeschiedenis toevoegen",
-          "refresh_interval": "Ververs elke"
+          "include_history": "Statusgeschiedenis toevoegen"
         }
       }
     },
