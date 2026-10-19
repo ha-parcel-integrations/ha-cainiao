@@ -5,13 +5,13 @@
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+> 📦 Part of [**ha-parcel-integrations**](https://ha-parcel-integrations.github.io/), a family of package-tracking integrations for Home Assistant that all publish the same parcel format, statuses and events, so they plug into cross-carrier automations and the optional [Parcel Aggregator](https://github.com/ha-parcel-integrations/ha-parcel-aggregator). Browse the other carriers on the website.
+>
 > 💬 Questions or feedback? Join the discussion on the [Home Assistant community](https://community.home-assistant.io/t/packages-postnl-dhl-nl-dpd-and-gls-parcel-integration/112433/).
 
 A custom Home Assistant integration that tracks cross-border parcels through [Cainiao](https://global.cainiao.com) — Alibaba's tracking layer for AliExpress, Temu, Shein and similar shops. No account is needed: you enter the tracking number yourself, just like on Cainiao's own tracking page.
 
 **Why this and not your national carrier's integration?** A parcel from China is invisible to PostNL, DHL or DPD until it reaches their network, often two weeks after you ordered. Cainiao sees it from the day it ships. Once a local carrier takes over the last leg, that carrier's integration takes over too — so the two complement each other rather than compete.
-
-Part of the [ha-parcel-integrations](https://ha-parcel-integrations.github.io/) family: it publishes the same canonical parcel format, statuses and events as the other carrier integrations, so it plugs straight into the [Parcel Aggregator](https://github.com/ha-parcel-integrations/ha-parcel-aggregator) and cross-carrier automations.
 
 > ### ℹ️ Happy path confirmed against real parcels
 >
