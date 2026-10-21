@@ -1,4 +1,5 @@
 """Tests for the Cainiao refresh button."""
+
 from unittest.mock import AsyncMock, MagicMock
 
 from custom_components.cainiao.button import CainiaoRefreshButton

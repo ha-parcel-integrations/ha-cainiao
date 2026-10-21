@@ -8,10 +8,11 @@ fixed six-hour cadence, is the whole rate-limit strategy: Alibaba throttles
 traffic it considers unusual, and a fan-out of parallel requests every half hour
 is exactly that.
 """
+
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 import logging
-from datetime import datetime, timedelta, timezone
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -89,9 +90,9 @@ class CainiaoCoordinator(DataUpdateCoordinator[list[dict]]):
         # that already existed when the integration started — otherwise every
         # restart would flood users with "registered" notifications.
         self._known_state: dict[str, ParcelStatus] | None = None
-        self._known_delivery_times: (
-            dict[str, tuple[str | None, str | None]] | None
-        ) = None
+        self._known_delivery_times: dict[str, tuple[str | None, str | None]] | None = (
+            None
+        )
         # Cached device id, attached to every fired event so device-trigger
         # automations can filter to this device.
         self._cached_device_id: str | None = None
@@ -130,9 +131,7 @@ class CainiaoCoordinator(DataUpdateCoordinator[list[dict]]):
     def _include_history(self) -> bool:
         """Whether the opt-in per-parcel history option is enabled."""
         return bool(
-            self.config_entry.options.get(
-                CONF_INCLUDE_HISTORY, DEFAULT_INCLUDE_HISTORY
-            )
+            self.config_entry.options.get(CONF_INCLUDE_HISTORY, DEFAULT_INCLUDE_HISTORY)
         )
 
     async def _async_update_data(self) -> list[dict]:
@@ -194,7 +193,9 @@ class CainiaoCoordinator(DataUpdateCoordinator[list[dict]]):
         delivered = [parcel for _, parcel in entries if parcel["delivered"]]
         # Rebuilt fresh from this cycle's data — a code whose payload just
         # flipped to delivered is skipped starting next cycle.
-        self._delivered_codes = {code for code, parcel in entries if parcel["delivered"]}
+        self._delivered_codes = {
+            code for code, parcel in entries if parcel["delivered"]
+        }
 
         self.delivered = apply_delivered_filter(
             sort_parcels_by_ts(delivered, "delivered_at", descending=True),
@@ -220,7 +221,7 @@ class CainiaoCoordinator(DataUpdateCoordinator[list[dict]]):
         # A batched poll either succeeded or raised, so reaching this point is
         # itself the success signal — unlike the per-parcel carriers, there is
         # no "served entirely from cache" case to exclude here.
-        self.last_success_time = datetime.now(timezone.utc)
+        self.last_success_time = datetime.now(UTC)
         return normalized_active
 
     def _fire_change_events(self, parcels: list[dict]) -> None:

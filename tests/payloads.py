@@ -8,6 +8,7 @@ otherwise verbatim real payloads from a user's diagnostics export (2026-08-24,
 see ``carrier-research/cainiao/``) — only ``mailNo`` and its handoff-number
 counterparts are replaced with placeholders.
 """
+
 from __future__ import annotations
 
 ACTIVE_CODE = "LP00999999999"
@@ -169,7 +170,10 @@ def real_delivered_sample() -> dict:
                 "descTitle": "Carrier note:",
                 "timeZone": "GMT+08:00",
                 "actionCode": "GTMS_DO_DEPART",
-                "group": {"nodeCode": "AE_GROUP_DELIVERING", "nodeDesc": "Out for delivery"},
+                "group": {
+                    "nodeCode": "AE_GROUP_DELIVERING",
+                    "nodeDesc": "Out for delivery",
+                },
             },
             {
                 "time": 1_770_197_545_000,
@@ -179,7 +183,10 @@ def real_delivered_sample() -> dict:
                 "descTitle": "Carrier note:",
                 "timeZone": "GMT+08:00",
                 "actionCode": "CC_IM_SUCCESS",
-                "group": {"nodeCode": "AE_GROUP_IM_CLEARING_CUSTOMS", "nodeDesc": "At customs"},
+                "group": {
+                    "nodeCode": "AE_GROUP_IM_CLEARING_CUSTOMS",
+                    "nodeDesc": "At customs",
+                },
             },
             {
                 "time": 1_770_013_388_000,
@@ -208,7 +215,10 @@ def real_delivered_sample() -> dict:
                 "descTitle": "Carrier note:",
                 "timeZone": "GMT+08:00",
                 "actionCode": "GTMS_OE_DEPART",
-                "group": {"nodeCode": "AE_GROUP_DES_PROCESSING", "nodeDesc": "In transit"},
+                "group": {
+                    "nodeCode": "AE_GROUP_DES_PROCESSING",
+                    "nodeDesc": "In transit",
+                },
             },
             {
                 "time": 1_765_204_140_000,
@@ -252,7 +262,10 @@ def real_active_sample() -> dict:
             "descTitle": "Carrier note:",
             "timeZone": "GMT+2",
             "actionCode": "CC_HO_OUT_SUCCESS",
-            "group": {"nodeCode": "AE_GROUP_EX_CLEARING_CUSTOMS", "nodeDesc": "At customs"},
+            "group": {
+                "nodeCode": "AE_GROUP_EX_CLEARING_CUSTOMS",
+                "nodeDesc": "At customs",
+            },
         },
         "detailList": [
             {
@@ -263,7 +276,10 @@ def real_active_sample() -> dict:
                 "descTitle": "Carrier note:",
                 "timeZone": "GMT+2",
                 "actionCode": "CC_HO_OUT_SUCCESS",
-                "group": {"nodeCode": "AE_GROUP_EX_CLEARING_CUSTOMS", "nodeDesc": "At customs"},
+                "group": {
+                    "nodeCode": "AE_GROUP_EX_CLEARING_CUSTOMS",
+                    "nodeDesc": "At customs",
+                },
             },
             {
                 "time": 1_787_400_180_000,
@@ -273,7 +289,10 @@ def real_active_sample() -> dict:
                 "descTitle": "Carrier note:",
                 "timeZone": "GMT+3",
                 "actionCode": "LH_POST_COLLECTION",
-                "group": {"nodeCode": "AE_GROUP_LH_PROCESSING", "nodeDesc": "In transit"},
+                "group": {
+                    "nodeCode": "AE_GROUP_LH_PROCESSING",
+                    "nodeDesc": "In transit",
+                },
             },
             {
                 "time": 1_783_018_517_000,
@@ -283,7 +302,10 @@ def real_active_sample() -> dict:
                 "descTitle": "Carrier note:",
                 "timeZone": "GMT+8",
                 "actionCode": "SC_OUTBOUND_SUCCESS",
-                "group": {"nodeCode": "AE_GROUP_SC_PROCESSING", "nodeDesc": "In transit"},
+                "group": {
+                    "nodeCode": "AE_GROUP_SC_PROCESSING",
+                    "nodeDesc": "In transit",
+                },
             },
             {
                 "time": 1_782_922_591_000,

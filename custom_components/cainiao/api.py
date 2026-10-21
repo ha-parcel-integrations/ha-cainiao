@@ -6,6 +6,7 @@ entry per number. Every other carrier here polls one parcel per request; doing
 that against Cainiao is exactly the "unusual traffic" Alibaba throttles on, so
 this client asks about everything at once.
 """
+
 from __future__ import annotations
 
 import logging

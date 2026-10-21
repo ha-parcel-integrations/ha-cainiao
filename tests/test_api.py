@@ -1,4 +1,5 @@
 """Tests for the Cainiao API client."""
+
 import json
 from unittest.mock import AsyncMock, MagicMock
 

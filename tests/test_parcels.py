@@ -4,7 +4,8 @@ These need no Home Assistant instance — the whole point of keeping
 ``parcels.py`` free of I/O is that the Cainiao-specific mapping can be tested as
 plain functions.
 """
-from datetime import datetime, timedelta, timezone
+
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -46,7 +47,7 @@ from .payloads import (
 
 
 @pytest.mark.parametrize(
-    "action_code,expected",
+    ("action_code", "expected"),
     [
         ("GWMS_ACCEPT", ParcelStatus.REGISTERED),
         ("LH_DEPART", ParcelStatus.IN_TRANSIT),
@@ -130,7 +131,7 @@ def test_unmapped_action_warns_only_once(caplog):
 
 def test_parse_iso_handles_z_naive_and_garbage():
     assert parse_iso("2026-04-29T13:12:42Z").tzinfo is not None
-    assert parse_iso("2026-04-29T13:12:42").tzinfo == timezone.utc
+    assert parse_iso("2026-04-29T13:12:42").tzinfo == UTC
     assert parse_iso("not-a-date") is None
     assert parse_iso(None) is None
 
@@ -259,7 +260,7 @@ def test_capabilities_are_known_values():
 
 def test_capabilities_match_the_last_leg_gap():
     """CAPABILITIES must agree with test_normalize_leaves_last_leg_fields_empty."""
-    assert CAPABILITIES == {"url", "history", "delivery_window"}
+    assert {"url", "history", "delivery_window"} == CAPABILITIES
 
 
 def test_normalize_active_parcel_reports_eta_window():
@@ -347,9 +348,7 @@ def test_normalize_real_delivered_parcel():
 
 
 def test_normalize_real_delivered_parcel_history():
-    history = normalize_parcel(real_delivered_sample(), include_history=True)[
-        "history"
-    ]
+    history = normalize_parcel(real_delivered_sample(), include_history=True)["history"]
     assert len(history) == 7
     assert history[0]["status"] == ParcelStatus.IN_TRANSIT  # PU_PICKUP_SUCCESS
     assert history[-2]["status"] == ParcelStatus.OUT_FOR_DELIVERY  # GTMS_DO_DEPART
@@ -406,7 +405,7 @@ def _entry(filter_type: str, amount: int) -> MockConfigEntry:
 
 
 def _delivered_pair() -> list[dict]:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return [
         {"barcode": "RECENT", "delivered_at": (now - timedelta(days=1)).isoformat()},
         {"barcode": "OLD", "delivered_at": (now - timedelta(days=30)).isoformat()},
