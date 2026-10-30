@@ -201,7 +201,7 @@ worth an issue too. Those are the mappings we have the least evidence for.
 ## Troubleshooting
 
 - **A parcel shows `unknown`** — usually just means Cainiao has no scans for it yet, which is normal for the first days after ordering. It picks up automatically. If it stays `unknown` after the parcel clearly moved, the status token is one we do not map yet — see the next point.
-- **A status logs "Unrecognised Cainiao status"** — please [open an issue](https://github.com/ha-parcel-integrations/ha-cainiao/issues/new) with the logged line. The status vocabulary is still being mapped from real parcels, so these reports are how it gets complete.
+- **A status logs "Unrecognised Cainiao status"** — please [open an issue](https://github.com/ha-parcel-integrations/ha-cainiao/issues/new?template=unrecognised_status.yml) with the logged line. The status vocabulary is still being mapped from real parcels, so these reports are how it gets complete.
 
 ## Related integrations
 
