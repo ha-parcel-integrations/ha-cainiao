@@ -2,7 +2,7 @@
 
 [![Release](https://img.shields.io/github/v/release/ha-parcel-integrations/ha-cainiao.svg)](https://github.com/ha-parcel-integrations/ha-cainiao/releases)
 [![Downloads](https://img.shields.io/github/downloads/ha-parcel-integrations/ha-cainiao/total.svg)](https://github.com/ha-parcel-integrations/ha-cainiao/releases)
-[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+[![Marketplace](https://img.shields.io/badge/Marketplace-Custom-41BDF5.svg)](https://hacs.xyz)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > 📦 Part of [**ha-parcel-integrations**](https://ha-parcel-integrations.github.io/), a family of package-tracking integrations for Home Assistant that all publish the same parcel format, statuses and events, so they plug into cross-carrier automations and the optional [Parcel Aggregator](https://github.com/ha-parcel-integrations/ha-parcel-aggregator). Browse the other carriers on the website.
@@ -62,16 +62,16 @@ A custom Home Assistant integration that tracks cross-border parcels through [Ca
 
 ## Installation
 
-### HACS (recommended)
+### Marketplace (recommended)
 
-1. In HACS, choose the three-dot menu → **Custom repositories**.
+1. In the Marketplace, choose the three-dot menu → **Custom repositories**.
 2. Add `https://github.com/ha-parcel-integrations/ha-cainiao` as an **Integration**.
 3. Install **Cainiao**.
-4. Restart Home Assistant if HACS asks you to.
+4. Restart Home Assistant if it asks you to.
 
-Or click the button below to open it directly in HACS:
+Or click the button below to open it directly in the Marketplace:
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ha-parcel-integrations&repository=ha-cainiao&category=integration)
+[![Open your Home Assistant instance and open a repository inside the Marketplace.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ha-parcel-integrations&repository=ha-cainiao&category=integration)
 
 ### Manual
 
