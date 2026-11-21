@@ -90,6 +90,10 @@ async def test_per_parcel_sensor_spawn_and_remove(hass):
         assert registry.async_get_entity_id(
             "sensor", DOMAIN, f"{entry.entry_id}_{ACTIVE_CODE}"
         )
+        for suffix in ("en_route_to_pickup_point", "awaiting_pickup"):
+            assert registry.async_get_entity_id(
+                "sensor", DOMAIN, f"{entry.entry_id}_{suffix}"
+            )
 
         # The user swaps one tracked number for another: the summary sensor
         # spawns a per-parcel sensor for the new one and removes the stale one
@@ -110,6 +114,10 @@ async def test_per_parcel_sensor_spawn_and_remove(hass):
             )
             is None
         )
+        for suffix in ("en_route_to_pickup_point", "awaiting_pickup"):
+            assert registry.async_get_entity_id(
+                "sensor", DOMAIN, f"{entry.entry_id}_{suffix}"
+            )
 
 
 async def test_options_update_applies_live_without_reload(hass):

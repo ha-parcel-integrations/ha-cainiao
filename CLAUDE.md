@@ -54,10 +54,16 @@ in `const.py`'s `CAPABILITIES` (feeds the docs site's comparison table) — keep
 the two in agreement if that ever changes.
 
 - **`planned_from` / `planned_to` come from `globalEtaInfo`** (confirmed live
-  2026-08-24) — `deliveryMinTime`/`deliveryMaxTime`, epoch ms. `planned_to` is
-  `None` when the two agree (the only payload seen so far had them identical,
-  so it's treated as a point estimate, not a window). Cleared to `None` on a
-  delivered parcel, same as every other carrier in the suite.
+  2026-08-24) — `deliveryMinTime`/`deliveryMaxTime`, epoch ms. Equal values are
+  one moment and run to 23:59:59 the same day in Home Assistant's zone (Cainiao
+  spans several countries and names no zone). The window is emptied at
+  `at_pickup_point`, `returning` and `delivered`.
+- **`pickup` is `True` once any timeline event mapped to `at_pickup_point`**, and
+  stays `True` after collection; `pickup_point` is always `None` (Cainiao never
+  names the point). `en_route_to_pickup_point` is exposed anyway (active, `pickup`
+  true, not yet `at_pickup_point`/`returning`); because `pickup` is only known on
+  arrival it reads 0 until a pickup-point arrival is seen. Pending: an in-transit
+  pickup flag before arrival.
 
 - **Rate limiting shapes the integration (non-negotiable without new evidence).**
   Alibaba soft-bans unusual traffic, and an IP ban costs the user every AliExpress

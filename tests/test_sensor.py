@@ -7,6 +7,7 @@ from custom_components.cainiao.const import ParcelStatus
 from custom_components.cainiao.sensor import (
     CainiaoAwaitingPickupSensor,
     CainiaoDeliveredParcelsSensor,
+    CainiaoEnRouteToPickupPointSensor,
     CainiaoIncomingParcelsSensor,
     CainiaoLastUpdateSensor,
     CainiaoNextDeliverySensor,
@@ -68,6 +69,27 @@ def test_awaiting_pickup_zero_when_no_parcels():
     assert sensor.extra_state_attributes["parcels"] == []
 
 
+def test_en_route_counts_only_active_pickup_parcels_not_yet_there():
+    en_route = _parcel("EN", ParcelStatus.IN_TRANSIT, pickup=True)
+    ofd = _parcel("OFD", ParcelStatus.OUT_FOR_DELIVERY, pickup=True)
+    plain = _parcel("PLAIN", ParcelStatus.IN_TRANSIT, pickup=False)
+    there = _parcel("THERE", ParcelStatus.AT_PICKUP_POINT, pickup=True)
+    back = _parcel("BACK", ParcelStatus.RETURNING, pickup=True)
+    sensor = CainiaoEnRouteToPickupPointSensor(
+        _coordinator([en_route, ofd, plain, there, back]), _entry()
+    )
+    assert sensor.native_value == 2
+    assert [p["barcode"] for p in sensor.extra_state_attributes["parcels"]] == [
+        "EN",
+        "OFD",
+    ]
+
+
+def test_en_route_zero_when_no_parcels():
+    sensor = CainiaoEnRouteToPickupPointSensor(_coordinator([]), _entry())
+    assert sensor.native_value == 0
+
+
 def test_parcel_sensor_status_and_attributes():
     parcel = _parcel("A", status=ParcelStatus.OUT_FOR_DELIVERY)
     sensor = CainiaoParcelSensor(_coordinator([parcel]), _entry(), "A")
@@ -84,12 +106,12 @@ def test_parcel_sensor_missing_barcode():
 def test_next_delivery_picks_earliest():
     coordinator = _coordinator(
         [
-            _parcel("A", planned_from="2026-05-02T10:00:00Z"),
-            _parcel("B", planned_from="2026-05-01T10:00:00Z"),
+            _parcel("A", planned_from="2099-05-02T10:00:00Z"),
+            _parcel("B", planned_from="2099-05-01T10:00:00Z"),
         ]
     )
     sensor = CainiaoNextDeliverySensor(coordinator, _entry())
-    assert sensor.native_value == datetime(2026, 5, 1, 10, 0, tzinfo=UTC)
+    assert sensor.native_value == datetime(2099, 5, 1, 10, 0, tzinfo=UTC)
     assert sensor.extra_state_attributes["barcode"] == "B"
 
 
@@ -103,7 +125,7 @@ def test_next_delivery_skips_unparseable_moment():
     coordinator = _coordinator(
         [
             _parcel("A", planned_from="not-a-date"),
-            _parcel("B", planned_from="2026-05-01T10:00:00Z"),
+            _parcel("B", planned_from="2099-05-01T10:00:00Z"),
         ]
     )
     sensor = CainiaoNextDeliverySensor(coordinator, _entry())
@@ -125,3 +147,14 @@ def test_last_update_sensor():
     coordinator.last_success_time = moment
     sensor = CainiaoLastUpdateSensor(coordinator, _entry())
     assert sensor.native_value == moment
+
+
+def test_next_delivery_skips_a_window_that_has_ended():
+    coordinator = _coordinator(
+        [
+            _parcel("OLD", planned_from="2000-05-01T10:00:00Z"),
+            _parcel("NEW", planned_from="2099-05-01T10:00:00Z"),
+        ]
+    )
+    sensor = CainiaoNextDeliverySensor(coordinator, _entry())
+    assert sensor.extra_state_attributes["barcode"] == "NEW"

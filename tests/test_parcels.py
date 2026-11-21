@@ -5,8 +5,9 @@ These need no Home Assistant instance — the whole point of keeping
 plain functions.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 
+from homeassistant.util import dt as dt_util
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -277,8 +278,8 @@ def test_normalize_delivered_parcel_clears_eta():
     assert parcel["planned_to"] is None
 
 
-def test_normalize_eta_point_estimate_has_no_planned_to():
-    """A payload where deliveryMinTime == deliveryMaxTime is a point estimate."""
+def test_normalize_eta_point_estimate_runs_to_the_end_of_the_day():
+    """A payload where deliveryMinTime == deliveryMaxTime is one moment."""
     raw = active_sample()
     raw["globalEtaInfo"] = {
         "deliveryMinTime": 1_787_800_000_000,
@@ -286,7 +287,10 @@ def test_normalize_eta_point_estimate_has_no_planned_to():
     }
     parcel = normalize_parcel(raw)
     assert parcel["planned_from"] == to_iso_timestamp(1_787_800_000_000)
-    assert parcel["planned_to"] is None
+    zone = dt_util.get_default_time_zone()
+    end = datetime.fromisoformat(parcel["planned_to"]).astimezone(zone)
+    assert end.time().replace(microsecond=0) == time(23, 59, 59)
+    assert end.date() == parse_iso(parcel["planned_from"]).astimezone(zone).date()
 
 
 def test_normalize_missing_eta_leaves_window_empty():
@@ -361,7 +365,7 @@ def test_normalize_real_active_parcel():
     assert parcel["status"] == ParcelStatus.IN_TRANSIT
     assert parcel["raw_status"] == "In customs "
     assert parcel["planned_from"] == "2026-08-27T11:07:58.899000+00:00"
-    assert parcel["planned_to"] is None  # deliveryMinTime == deliveryMaxTime
+    assert parcel["planned_to"] is not None  # deliveryMinTime == deliveryMaxTime
     assert handoff_number(real_active_sample()) == "RC000000003EE"
 
 
