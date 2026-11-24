@@ -23,6 +23,7 @@ TO_REDACT = {
     "barcode",
     "sender",
     "receiver",
+    "contents",
     "url",
     # Cainiao payload fields
     "mailNo",

@@ -15,7 +15,7 @@ from datetime import UTC, datetime, timedelta
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -29,6 +29,7 @@ from .const import (
     REFRESH_INTERVAL_MINUTES,
     ParcelStatus,
 )
+from .contents import ContentsStore
 from .parcels import apply_delivered_filter, normalize_parcel, sort_parcels_by_ts
 
 _LOGGER = logging.getLogger(__name__)
@@ -72,6 +73,7 @@ class CainiaoCoordinator(DataUpdateCoordinator[list[dict]]):
             update_interval=_refresh_interval(entry),
         )
         self._client = client
+        self.contents_store = ContentsStore(hass, entry.entry_id)
         self.delivered: list[dict] = []
         # tracking_code -> last successful raw payload, so a transient fetch
         # failure or a not-found blip keeps the parcel visible instead of
@@ -186,9 +188,44 @@ class CainiaoCoordinator(DataUpdateCoordinator[list[dict]]):
             if cached is not None:
                 raws_by_code[code] = cached
 
+        # A batched poll either succeeded or raised, so reaching this point is
+        # itself the success signal — unlike the per-parcel carriers, there is
+        # no "served entirely from cache" case to exclude here.
+        published = self._publish(raws_by_code)
+        self.last_success_time = datetime.now(UTC)
+        return published
+
+    def _apply_contents(self, parcel: dict, code: object) -> dict:
+        """Put the user's own contents text over the carrier's, when there is one."""
+        user_value = self.contents_store.get(code)
+        if user_value is not None:
+            parcel["contents"] = user_value
+        return parcel
+
+    @callback
+    def republish_from_cache(self) -> None:
+        """Re-publish the parcels from what is already held, issuing no request.
+
+        For a change that needs no carrier data, such as the user's contents
+        text: this carrier soft-bans unusual traffic, so it must not poll.
+        """
+        raws = {
+            code: self._raw_cache.get(code) or {"mailNo": code}
+            for code in self._tracked()
+        }
+        self.data = self._publish(raws)
+        self.async_update_listeners()
+
+    def _publish(self, raws_by_code: dict[str, dict]) -> list[dict]:
+        """Normalise raw payloads into the active/delivered lists and events."""
         include_history = self._include_history
         entries = [
-            (code, normalize_parcel(raw, include_history=include_history))
+            (
+                code,
+                self._apply_contents(
+                    normalize_parcel(raw, include_history=include_history), code
+                ),
+            )
             for code, raw in raws_by_code.items()
         ]
         active = [parcel for _, parcel in entries if not parcel["delivered"]]
@@ -220,10 +257,6 @@ class CainiaoCoordinator(DataUpdateCoordinator[list[dict]]):
             if parcel.get("barcode")
         }
 
-        # A batched poll either succeeded or raised, so reaching this point is
-        # itself the success signal — unlike the per-parcel carriers, there is
-        # no "served entirely from cache" case to exclude here.
-        self.last_success_time = datetime.now(UTC)
         return normalized_active
 
     def _fire_change_events(self, parcels: list[dict]) -> None:

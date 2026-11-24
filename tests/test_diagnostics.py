@@ -16,7 +16,9 @@ async def test_diagnostics_redacts_and_counts(hass):
     """
     entry = MagicMock()
     entry.options = {"parcels": [{"tracking_code": DELIVERED_CODE}]}
-    entry.runtime_data.coordinator.data = [normalize_parcel(delivered_sample())]
+    parcel = normalize_parcel(delivered_sample())
+    parcel["contents"] = "Running shoes"
+    entry.runtime_data.coordinator.data = [parcel]
     entry.runtime_data.coordinator.delivered = []
     entry.runtime_data.coordinator.delivered_codes = set()
 
@@ -32,6 +34,7 @@ async def test_diagnostics_redacts_and_counts(hass):
     parcel = result["incoming"][0]
     assert parcel["barcode"] == "**REDACTED**"
     assert parcel["url"] == "**REDACTED**"
+    assert parcel["contents"] == "**REDACTED**"
     assert parcel["raw"]["mailNo"] == "**REDACTED**"
     assert parcel["raw"]["copyRealMailNo"] == "**REDACTED**"
     assert parcel["raw"]["realMailNo"] == "**REDACTED**"

@@ -206,6 +206,7 @@ CANONICAL_KEYS = [
     "barcode",
     "sender",
     "receiver",
+    "contents",
     "status",
     "raw_status",
     "delivered",
@@ -249,7 +250,14 @@ def test_normalize_active_parcel():
 def test_normalize_leaves_last_leg_fields_empty():
     """Cainiao exposes none of these; the local carrier's integration does."""
     parcel = normalize_parcel(active_sample())
-    for key in ("sender", "receiver", "pickup_point", "weight", "dimensions"):
+    for key in (
+        "sender",
+        "receiver",
+        "contents",
+        "pickup_point",
+        "weight",
+        "dimensions",
+    ):
         assert parcel[key] is None, key
     assert parcel["pickup"] is False
 

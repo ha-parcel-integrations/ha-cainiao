@@ -155,8 +155,11 @@ Every payload is the full normalised parcel plus the hub's `device_id`. Events a
 
 | Service | Fields | Description |
 |---|---|---|
-| `cainiao.track_parcel` | `tracking_code` | Start tracking a parcel |
+| `cainiao.track_parcel` | `tracking_code`, `contents` (optional) | Start tracking a parcel |
 | `cainiao.untrack_parcel` | `tracking_code` | Stop tracking a parcel |
+| `cainiao.update_contents` | `tracking_code`, `contents` | Set, replace or clear (empty text) a note on what is in a parcel |
+
+The `contents` text is stored locally, never sent to Cainiao, and fills the parcel's `contents` field; it titles the parcel's calendar event and shows on the next-delivery sensor. Changing it never triggers a request to Cainiao.
 
 ## Examples
 
